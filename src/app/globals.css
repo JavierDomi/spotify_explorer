@@ -1,26 +1,251 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+    --background: #ffffff;
+    --foreground: #171717;
+
+    /* Colores marca Spotify */
+    --spotify-green: #1ed760;
+    --spotify-black: #191414;
+
+    /* Gradientes base */
+    --app-gradient-light: radial-gradient(
+        circle at top left,
+        #1db95433,
+        #191414 60%
+    );
+    --app-gradient-dark: radial-gradient(
+        circle at top left,
+        #1db95455,
+        #000000 60%
+    );
+
+    /* Glassmorphism */
+    --glass-bg-light: rgba(255, 255, 255, 0.65);
+    --glass-bg-dark: rgba(15, 15, 15, 0.7);
+    --glass-border-light: rgba(255, 255, 255, 0.7);
+    --glass-border-dark: rgba(255, 255, 255, 0.25);
 }
 
+/* Tokens para Tailwind */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+    --font-sans: var(--font-geist-sans);
+    --font-mono: var(--font-geist-mono);
+
+    --color-spotify: var(--spotify-green);
 }
 
+/* Dark mode automático */
 @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+    :root {
+        --background: #050505;
+        --foreground: #f5f5f5;
+    }
+}
+
+/* Reset muy ligero por encima de Tailwind */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+/* Layout global */
+html,
+body {
+    height: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+    margin: 0;
+    background: var(--app-gradient-light);
+    color: var(--foreground);
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial,
+        sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+/* Ajuste fondo en dark */
+@media (prefers-color-scheme: dark) {
+    body {
+        background: var(--app-gradient-dark);
+    }
+}
+
+/* Contenedor principal de la app */
+.app-shell {
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 260px minmax(0, 1fr);
+    gap: 1.5rem;
+    padding: 1.5rem;
+}
+
+/* En móvil: sidebar arriba */
+@media (max-width: 768px) {
+    .app-shell {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: auto 1fr;
+    }
+}
+
+/* Sidebar tipo Spotify */
+.app-sidebar {
+    background: linear-gradient(
+        150deg,
+        rgba(0, 0, 0, 0.65),
+        rgba(0, 0, 0, 0.9)
+    );
+    border-radius: 1.5rem;
+    padding: 1.25rem 1rem;
+    color: #f9fafb;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.55),
+        0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+
+/* Header principal */
+.app-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+/* Tarjeta glass genérica para usar con Tailwind (`class="glass-card p-4"` etc.) */
+.glass-card {
+    position: relative;
+    border-radius: 1.25rem;
+    background: var(--glass-bg-light);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border: 1px solid var(--glass-border-light);
+    box-shadow: 0 18px 45px rgba(15, 15, 15, 0.25),
+        0 0 0 1px rgba(255, 255, 255, 0.05);
+    overflow: hidden;
+}
+
+/* Versión oscura de glass coherente con el background */
+@media (prefers-color-scheme: dark) {
+    .glass-card {
+        background: var(--glass-bg-dark);
+        border-color: var(--glass-border-dark);
+    }
+}
+
+/* Pequeño brillo diagonal interno */
+.glass-card::before {
+    content: '';
+    position: absolute;
+    inset: -40%;
+    background: radial-gradient(
+        circle at top left,
+        rgba(255, 255, 255, 0.16),
+        transparent 55%
+    );
+    opacity: 0.9;
+    pointer-events: none;
+}
+
+/* Botones principales (call to action) */
+.btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.55rem 1.1rem;
+    border-radius: 9999px;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #000000;
+    background: linear-gradient(135deg, #1ed760, #1db954);
+    box-shadow: 0 14px 35px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(0, 0, 0, 0.05);
+    transition: transform 150ms ease, box-shadow 150ms ease, filter 150ms ease;
+}
+
+.btn-primary:hover {
+    transform: translateY(-1px) scale(1.01);
+    filter: brightness(1.06);
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+.btn-primary:active {
+    transform: translateY(0) scale(0.99);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+
+/* Botón fantasma para acciones secundarias */
+.btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    padding: 0.45rem 1rem;
+    border-radius: 9999px;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    background: rgba(15, 23, 42, 0.22);
+    color: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: background-color 150ms ease, border-color 150ms ease,
+        transform 150ms ease;
+}
+
+.btn-ghost:hover {
+    background: rgba(15, 23, 42, 0.45);
+    border-color: rgba(148, 163, 184, 0.6);
+    transform: translateY(-1px);
+}
+
+/* Chips/etiquetas para géneros, moods, etc. */
+.chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.15rem 0.6rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    line-height: 1.2;
+    border: 1px solid rgba(148, 163, 184, 0.4);
+    background: rgba(15, 23, 42, 0.18);
+}
+
+/* Lista de tracks */
+.track-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1.8fr) minmax(0, 1.2fr) 70px;
+    align-items: center;
+    gap: 0.85rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.75rem;
+    transition: background-color 120ms ease, transform 120ms ease;
+}
+
+.track-row:hover {
+    background: rgba(15, 23, 42, 0.32);
+    transform: translateY(-1px);
+}
+
+/* Scrollbars discretas en webkit */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.55);
+    border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(148, 163, 184, 0.9);
 }
