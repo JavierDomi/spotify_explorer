@@ -15,17 +15,30 @@ export function getSpotifyAuthUrl() {
     const redirectUri = process.env.NEXT_PUBLIC_REDIRECT_URI || '';
     const state = generateRandomString(16);
 
-    // Guardar el state para validación posterior (prevenir CSRF)
     if (typeof window !== 'undefined') {
         localStorage.setItem('spotify_auth_state', state);
     }
 
     const scope = [
-        'user-read-private',
+        'ugc-image-upload',
+        'user-read-playback-state',
+        'user-modify-playback-state',
+        'user-read-currently-playing',
+        'streaming',
+        'app-remote-control',
         'user-read-email',
-        'user-top-read',
+        'user-read-private',
+        'playlist-read-collaborative',
         'playlist-modify-public',
+        'playlist-read-private',
         'playlist-modify-private',
+        'user-library-modify',
+        'user-library-read',
+        'user-top-read',
+        'user-read-playback-position',
+        'user-read-recently-played',
+        'user-follow-read',
+        'user-follow-modify',
     ].join(' ');
 
     const params = new URLSearchParams({

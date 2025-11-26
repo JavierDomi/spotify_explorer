@@ -1,9 +1,10 @@
-// lib/spotify.js
+import { saveTokens, logout } from '@/lib/auth';
 
 const API_BASE = 'https://api.spotify.com/v1';
 const ACCESS_TOKEN_KEY = 'spotify_token';
 const REFRESH_TOKEN_KEY = 'spotify_refresh_token';
 const EXPIRATION_KEY = 'spotify_token_expiration';
+const REFRESH_ENDPOINT = '/api/spotify/refresh';
 
 export function getAccessToken() {
     if (typeof window === 'undefined') {
@@ -30,6 +31,47 @@ export function getAccessToken() {
     return accessToken;
 }
 
+export async function refreshAccessToken() {
+    if (typeof window === 'undefined') return null;
+
+    const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
+    if (!refreshToken) return null;
+
+    try {
+        const response = await fetch(REFRESH_ENDPOINT, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refresh_token: refreshToken }),
+        });
+
+        if (!response.ok) {
+            logout(); // limpiar tokens si falla refresh
+            return null;
+        }
+
+        const data = await response.json();
+        if (data.access_token && data.expires_in) {
+            saveTokens(data.access_token, refreshToken, data.expires_in);
+            return data.access_token;
+        }
+
+        return null;
+    } catch (err) {
+        console.error('Error refrescando token:', err);
+        logout();
+        return null;
+    }
+}
+
+// Función para obtener token válido renovando si hace falta
+export async function getValidAccessToken() {
+    let token = getAccessToken();
+    if (!token) {
+        token = await refreshAccessToken();
+    }
+    return token;
+}
+
 /**
  * Genera una playlist según las preferencias seleccionadas.
  * artists: [{ id }]
@@ -39,7 +81,9 @@ export function getAccessToken() {
  */
 export async function generatePlaylist(preferences) {
     const { artists = [], genres = [], decades = [], popularity } = preferences;
-    const token = getAccessToken();
+    const token = await getValidAccessToken();
+    if (!token) throw new Error('No hay token válido para autenticar');
+
     let allTracks = [];
 
     // 1. Top tracks de artistas seleccionados
@@ -106,9 +150,9 @@ export async function generatePlaylist(preferences) {
  * Estructura: [{ id, name, image, genres, popularity }]
  */
 export async function getArtistStatsFromTracks(tracks) {
-    const token = getAccessToken();
+    const token = await getValidAccessToken();
+    if (!token) throw new Error('No hay token válido para autenticar');
 
-    // Agrupar por artista (primer artista de cada track, por simplicidad)
     const artistMap = new Map(); // id -> { count, data }
 
     tracks.forEach((track) => {
@@ -136,8 +180,6 @@ export async function getArtistStatsFromTracks(tracks) {
     const artistIds = Array.from(artistMap.keys());
     if (artistIds.length === 0) return [];
 
-    // Spotify no tiene endpoint oficial de "several artists" documentado en todas las libs,
-    // pero se puede hacer /artists?ids=... (máx 50 ids).
     const batches = [];
     const BATCH_SIZE = 50;
     for (let i = 0; i < artistIds.length; i += BATCH_SIZE) {
@@ -161,7 +203,6 @@ export async function getArtistStatsFromTracks(tracks) {
         });
     });
 
-    // Ordenar por nº de apariciones en la mezcla
     const artists = Array.from(artistMap.values())
         .sort((a, b) => b.count - a.count)
         .map((entry) => entry.data);
@@ -174,12 +215,10 @@ export async function getArtistStatsFromTracks(tracks) {
  * Devuelve [{ name, count, percentage }]
  */
 export function getGenreStatsFromTracks(tracks, artistsById = {}) {
-    // `artistsById` opcional: { [artistId]: { genres: [] } }
     const genreCount = new Map();
     let total = 0;
 
     tracks.forEach((track) => {
-        // Géneros de los artistas del track
         const trackArtists = track.artists || [];
         trackArtists.forEach((a) => {
             const artistData = artistsById[a.id];
@@ -198,7 +237,6 @@ export function getGenreStatsFromTracks(tracks, artistsById = {}) {
         percentage: total ? count / total : 0,
     }));
 
-    // Ordenar por count descendente y quedarnos con los principales
     return stats.sort((a, b) => b.count - a.count).slice(0, 15);
 }
 
@@ -233,12 +271,13 @@ export function getDecadeStatsFromTracks(tracks) {
  * Devuelve { dominantMood, energy, danceability, valence }
  */
 export async function getMoodSummaryFromTracks(tracks) {
-    const token = getAccessToken();
+    const token = await getValidAccessToken();
+    if (!token) throw new Error('No hay token válido para autenticar');
+
     const trackIds = tracks.map((t) => t.id).filter(Boolean);
 
     if (trackIds.length === 0) return null;
 
-    // /audio-features?ids=... (máx 100 ids por llamada)
     const BATCH_SIZE = 100;
     const allFeatures = [];
 
@@ -271,7 +310,6 @@ export async function getMoodSummaryFromTracks(tracks) {
     const danceability = sum.danceability / n;
     const valence = sum.valence / n;
 
-    // Clasificación muy simple de mood
     let dominantMood = 'desconocido';
     if (energy < 0.4 && valence < 0.4) dominantMood = 'chill / melancólico';
     else if (energy < 0.5 && valence >= 0.4) dominantMood = 'relajado';
@@ -308,7 +346,6 @@ export function getPopularityStatsFromTracks(tracks) {
     const min = Math.min(...pops);
     const max = Math.max(...pops);
 
-    // Histogramas en rangos de 20
     const buckets = [
         { label: '0–20', min: 0, max: 20 },
         { label: '21–40', min: 21, max: 40 },
@@ -337,15 +374,14 @@ export function getPopularityStatsFromTracks(tracks) {
  * trackUris: array de URIs de tracks (ej: spotify:track:ID)
  */
 export async function createPlaylistWithTracks(name, description, trackUris) {
-    const token = getAccessToken();
+    const token = await getValidAccessToken();
+    if (!token) throw new Error('No hay token válido para autenticar');
 
-    // Obtener id usuario actual
     const userRes = await fetch(`${API_BASE}/me`, {
         headers: { Authorization: `Bearer ${token}` },
     });
     const userData = await userRes.json();
 
-    // Crear playlist
     const createRes = await fetch(
         `${API_BASE}/users/${userData.id}/playlists`,
         {
@@ -363,7 +399,6 @@ export async function createPlaylistWithTracks(name, description, trackUris) {
     );
     const playlist = await createRes.json();
 
-    // Añadir tracks (en batches de max 100)
     const BATCH_SIZE = 100;
     for (let i = 0; i < trackUris.length; i += BATCH_SIZE) {
         const batch = trackUris.slice(i, i + BATCH_SIZE);
@@ -386,7 +421,9 @@ export async function createPlaylistWithTracks(name, description, trackUris) {
  * limit: número máximo de items
  */
 export async function getUserTopArtists(timeRange = 'medium_term', limit = 20) {
-    const token = getAccessToken();
+    const token = await getValidAccessToken();
+    if (!token) throw new Error('No hay token válido para autenticar');
+
     const res = await fetch(
         `${API_BASE}/me/top/artists?time_range=${timeRange}&limit=${limit}`,
         {
@@ -401,7 +438,9 @@ export async function getUserTopArtists(timeRange = 'medium_term', limit = 20) {
  * Obtiene los top tracks del usuario
  */
 export async function getUserTopTracks(timeRange = 'medium_term', limit = 20) {
-    const token = getAccessToken();
+    const token = await getValidAccessToken();
+    if (!token) throw new Error('No hay token válido para autenticar');
+
     const res = await fetch(
         `${API_BASE}/me/top/tracks?time_range=${timeRange}&limit=${limit}`,
         {
@@ -416,7 +455,9 @@ export async function getUserTopTracks(timeRange = 'medium_term', limit = 20) {
  * Obtiene todas las playlists del usuario
  */
 export async function getUserPlaylists(limit = 50) {
-    const token = getAccessToken();
+    const token = await getValidAccessToken();
+    if (!token) throw new Error('No hay token válido para autenticar');
+
     const res = await fetch(`${API_BASE}/me/playlists?limit=${limit}`, {
         headers: { Authorization: `Bearer ${token}` },
     });
@@ -428,7 +469,9 @@ export async function getUserPlaylists(limit = 50) {
  * Obtiene canciones guardadas (Me Gusta) del usuario
  */
 export async function getUserSavedTracks(limit = 50) {
-    const token = getAccessToken();
+    const token = await getValidAccessToken();
+    if (!token) throw new Error('No hay token válido para autenticar');
+
     const res = await fetch(`${API_BASE}/me/tracks?limit=${limit}`, {
         headers: { Authorization: `Bearer ${token}` },
     });
@@ -440,7 +483,9 @@ export async function getUserSavedTracks(limit = 50) {
  * Obtiene el historial reciente de reproducciones
  */
 export async function getRecentlyPlayed(limit = 50) {
-    const token = getAccessToken();
+    const token = await getValidAccessToken();
+    if (!token) throw new Error('No hay token válido para autenticar');
+
     const res = await fetch(
         `${API_BASE}/me/player/recently-played?limit=${limit}`,
         {
@@ -451,8 +496,13 @@ export async function getRecentlyPlayed(limit = 50) {
     return data.items.map((item) => item.track) || [];
 }
 
+/**
+ * Obtiene los tracks de una playlist específica
+ */
 export async function getPlaylistTracks(playlistId) {
-    const token = getAccessToken();
+    const token = await getValidAccessToken();
+    if (!token) throw new Error('No hay token válido para autenticar');
+
     let tracks = [];
     let url = `${API_BASE}/playlists/${playlistId}/tracks?limit=100`;
 
@@ -475,4 +525,22 @@ export async function getPlaylistTracks(playlistId) {
     }
 
     return tracks;
+}
+
+import { getValidAccessToken } from '@/lib/spotify';
+
+export async function fetchUserData() {
+    const token = await getValidAccessToken();
+    if (!token) throw new Error('No token válido');
+
+    const res = await fetch('https://api.spotify.com/v1/me', {
+        headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (!res.ok) {
+        throw new Error('Error obteniendo datos de usuario');
+    }
+
+    const data = await res.json();
+    return data;
 }

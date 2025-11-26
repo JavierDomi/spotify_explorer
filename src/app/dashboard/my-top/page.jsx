@@ -1,11 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getUserPlaylists } from '@/lib/spotify';
+import { getUserTopArtists, getUserTopTracks } from '@/lib/spotify';
+import ArtistWidget from '@/components/widgets/ArtistWidget';
+import TracksListWidget from '@/components/widgets/TracksListWidget';
 
-export default function PlaylistsPage() {
+export default function MyTopPage() {
     const [loading, setLoading] = useState(true);
-    const [playlists, setPlaylists] = useState([]);
+    const [artists, setArtists] = useState([]);
+    const [tracks, setTracks] = useState([]);
     const [error, setError] = useState(null);
 
     useEffect(() => {
@@ -13,10 +16,14 @@ export default function PlaylistsPage() {
             try {
                 setLoading(true);
                 setError(null);
-                const allPlaylists = await getUserPlaylists();
-                setPlaylists(allPlaylists);
+                const [topArtists, topTracks] = await Promise.all([
+                    getUserTopArtists('short_term', 10),
+                    getUserTopTracks('short_term', 10),
+                ]);
+                setArtists(topArtists);
+                setTracks(topTracks);
             } catch (e) {
-                setError('No se pudieron cargar tus playlists');
+                setError('No se pudieron cargar tus tops');
             } finally {
                 setLoading(false);
             }
@@ -24,20 +31,13 @@ export default function PlaylistsPage() {
         loadData();
     }, []);
 
-    if (loading) return <div>Cargando playlists...</div>;
+    if (loading) return <div>Cargando tops...</div>;
     if (error) return <div>{error}</div>;
 
     return (
-        <div className="space-y-6">
-            <h2 className="text-lg font-bold">Tus playlists</h2>
-            {playlists.map((pl) => (
-                <div key={pl.id} className="glass-card p-4 mb-2">
-                    <div className="font-semibold">{pl.name}</div>
-                    <div className="text-xs text-zinc-400">
-                        {pl.tracks.total} canciones
-                    </div>
-                </div>
-            ))}
+        <div className="space-y-8">
+            <ArtistWidget topArtists={artists} />
+            <TracksListWidget tracks={tracks} />
         </div>
     );
 }

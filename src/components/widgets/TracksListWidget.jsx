@@ -9,6 +9,11 @@ export default function TracksListWidget({ tracks = [] }) {
         return `${minutes}:${seconds.padStart(2, '0')}`;
     };
 
+    // Eliminar tracks duplicados por id para keys únicas
+    const uniqueTracks = Array.from(
+        new Map(tracks.map((t) => [t.id, t])).values()
+    );
+
     return (
         <div className="glass-card">
             <div className="p-4 border-b border-zinc-800/50">
@@ -16,13 +21,13 @@ export default function TracksListWidget({ tracks = [] }) {
                     Canciones en tu mezcla
                 </h3>
                 <p className="text-xs text-zinc-400 mt-1">
-                    Top {tracks.length} tracks seleccionados
+                    Top {uniqueTracks.length} tracks seleccionados
                 </p>
             </div>
 
             <div className="overflow-hidden">
                 <div className="max-h-96 overflow-y-auto">
-                    {tracks.map((track, index) => (
+                    {uniqueTracks.map((track, index) => (
                         <div
                             key={track.id}
                             className="flex items-center gap-4 px-4 py-3 hover:bg-zinc-800/30 transition-colors border-b border-zinc-800/30 last:border-b-0"
