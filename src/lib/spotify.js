@@ -1,45 +1,92 @@
+// lib/spotify.js
+
+const API_BASE = 'https://api.spotify.com/v1';
+const ACCESS_TOKEN_KEY = 'spotify_token';
+const REFRESH_TOKEN_KEY = 'spotify_refresh_token';
+const EXPIRATION_KEY = 'spotify_token_expiration';
+
+export function getAccessToken() {
+    // Solo existe window/localStorage en el navegador
+    if (typeof window === 'undefined') {
+        return null;
+    }
+
+    const accessToken = localStorage.getItem(ACCESS_TOKEN_KEY);
+    const expiration = localStorage.getItem(EXPIRATION_KEY);
+
+    if (!accessToken || !expiration) {
+        return null;
+    }
+
+    const expiresAt = Number(expiration);
+    if (!Number.isFinite(expiresAt)) {
+        return null;
+    }
+
+    const now = Date.now();
+    if (now >= expiresAt) {
+        return null; //TODO que hacemos si el token esta caducado?! Usamos auth.js para renovarlo?
+    }
+
+    return accessToken;
+}
+
+/**
+ * Genera una playlist según las preferencias seleccionadas.
+ * artists: [{ id }]
+ * genres: [string]
+ * decades: ['1980', '1990', ...]  // año de inicio de la década
+ * popularity: [min, max]
+ */
 export async function generatePlaylist(preferences) {
-    const { artists, genres, decades, popularity } = preferences;
+    const { artists = [], genres = [], decades = [], popularity } = preferences;
     const token = getAccessToken();
     let allTracks = [];
 
-    // 1. Obtener top tracks de artistas seleccionados
+    // 1. Top tracks de artistas seleccionados
     for (const artist of artists) {
-        const tracks = await fetch(
-            `https://api.spotify.com/v1/artists/${artist.id}/top-tracks?market=US`,
+        const res = await fetch(
+            `${API_BASE}/artists/${artist.id}/top-tracks?market=US`,
             {
                 headers: { Authorization: `Bearer ${token}` },
             }
         );
-        const data = await tracks.json();
-        allTracks.push(...data.tracks);
+        const data = await res.json();
+        if (data?.tracks) {
+            allTracks.push(...data.tracks);
+        }
     }
 
     // 2. Buscar por géneros
     for (const genre of genres) {
-        const results = await fetch(
-            `https://api.spotify.com/v1/search?type=track&q=genre:${genre}&limit=20`,
+        const res = await fetch(
+            `${API_BASE}/search?type=track&q=genre:${encodeURIComponent(
+                genre
+            )}&limit=20`,
             {
                 headers: { Authorization: `Bearer ${token}` },
             }
         );
-        const data = await results.json();
-        allTracks.push(...data.tracks.items);
+        const data = await res.json();
+        if (data?.tracks?.items) {
+            allTracks.push(...data.tracks.items);
+        }
     }
 
     // 3. Filtrar por década
     if (decades.length > 0) {
         allTracks = allTracks.filter((track) => {
+            if (!track?.album?.release_date) return false;
             const year = new Date(track.album.release_date).getFullYear();
             return decades.some((decade) => {
-                const decadeStart = parseInt(decade);
+                const decadeStart = parseInt(decade, 10);
                 return year >= decadeStart && year < decadeStart + 10;
             });
         });
     }
 
     // 4. Filtrar por popularidad
-    if (popularity) {
+    if (popularity && popularity.length === 2) {
         const [min, max] = popularity;
         allTracks = allTracks.filter(
             (track) => track.popularity >= min && track.popularity <= max
@@ -52,4 +99,234 @@ export async function generatePlaylist(preferences) {
     ).slice(0, 30);
 
     return uniqueTracks;
+}
+
+/**
+ * Datos para ArtistWidget
+ * Devuelve top artistas a partir de una lista de tracks.
+ * Estructura: [{ id, name, image, genres, popularity }]
+ */
+export async function getArtistStatsFromTracks(tracks) {
+    const token = getAccessToken();
+
+    // Agrupar por artista (primer artista de cada track, por simplicidad)
+    const artistMap = new Map(); // id -> { count, data }
+
+    tracks.forEach((track) => {
+        const artist = track?.artists?.[0];
+        if (!artist) return;
+        const id = artist.id;
+        if (!id) return;
+
+        if (!artistMap.has(id)) {
+            artistMap.set(id, {
+                count: 0,
+                data: {
+                    id,
+                    name: artist.name,
+                    image: null,
+                    genres: [],
+                    popularity: null,
+                },
+            });
+        }
+        const entry = artistMap.get(id);
+        entry.count += 1;
+    });
+
+    const artistIds = Array.from(artistMap.keys());
+    if (artistIds.length === 0) return [];
+
+    // Spotify no tiene endpoint oficial de "several artists" documentado en todas las libs,
+    // pero se puede hacer /artists?ids=... (máx 50 ids).
+    const batches = [];
+    const BATCH_SIZE = 50;
+    for (let i = 0; i < artistIds.length; i += BATCH_SIZE) {
+        const slice = artistIds.slice(i, i + BATCH_SIZE);
+        const url = `${API_BASE}/artists?ids=${slice.join(',')}`;
+        batches.push(
+            fetch(url, {
+                headers: { Authorization: `Bearer ${token}` },
+            }).then((r) => r.json())
+        );
+    }
+
+    const results = await Promise.all(batches);
+    results.forEach((batch) => {
+        (batch.artists || []).forEach((artist) => {
+            const entry = artistMap.get(artist.id);
+            if (!entry) return;
+            entry.data.genres = artist.genres || [];
+            entry.data.popularity = artist.popularity ?? null;
+            entry.data.image = artist.images?.[0]?.url || null;
+        });
+    });
+
+    // Ordenar por nº de apariciones en la mezcla
+    const artists = Array.from(artistMap.values())
+        .sort((a, b) => b.count - a.count)
+        .map((entry) => entry.data);
+
+    return artists;
+}
+
+/**
+ * Datos para GenderWidget (géneros)
+ * Devuelve [{ name, count, percentage }]
+ */
+export function getGenreStatsFromTracks(tracks, artistsById = {}) {
+    // `artistsById` opcional: { [artistId]: { genres: [] } }
+    const genreCount = new Map();
+    let total = 0;
+
+    tracks.forEach((track) => {
+        // Géneros de los artistas del track
+        const trackArtists = track.artists || [];
+        trackArtists.forEach((a) => {
+            const artistData = artistsById[a.id];
+            const genres = artistData?.genres || [];
+            genres.forEach((g) => {
+                const key = g.toLowerCase();
+                genreCount.set(key, (genreCount.get(key) || 0) + 1);
+                total += 1;
+            });
+        });
+    });
+
+    const stats = Array.from(genreCount.entries()).map(([name, count]) => ({
+        name,
+        count,
+        percentage: total ? count / total : 0,
+    }));
+
+    // Ordenar por count descendente y quedarnos con los principales
+    return stats.sort((a, b) => b.count - a.count).slice(0, 15);
+}
+
+/**
+ * Datos para DecadeWidget
+ * Devuelve [{ decade: '1980s', count }]
+ */
+export function getDecadeStatsFromTracks(tracks) {
+    const decadeMap = new Map();
+
+    tracks.forEach((track) => {
+        const dateStr = track?.album?.release_date;
+        if (!dateStr) return;
+        const year = new Date(dateStr).getFullYear();
+        if (!Number.isFinite(year)) return;
+
+        const decadeStart = Math.floor(year / 10) * 10;
+        const label = `${decadeStart}s`;
+        decadeMap.set(label, (decadeMap.get(label) || 0) + 1);
+    });
+
+    const stats = Array.from(decadeMap.entries())
+        .map(([decade, count]) => ({ decade, count }))
+        .sort((a, b) => parseInt(a.decade) - parseInt(b.decade));
+
+    return stats;
+}
+
+/**
+ * Datos para MoodWidget
+ * Usa audio features de Spotify: energy, danceability, valence, etc.
+ * Devuelve { dominantMood, energy, danceability, valence }
+ */
+export async function getMoodSummaryFromTracks(tracks) {
+    const token = getAccessToken();
+    const trackIds = tracks.map((t) => t.id).filter(Boolean);
+
+    if (trackIds.length === 0) return null;
+
+    // /audio-features?ids=... (máx 100 ids por llamada)
+    const BATCH_SIZE = 100;
+    const allFeatures = [];
+
+    for (let i = 0; i < trackIds.length; i += BATCH_SIZE) {
+        const slice = trackIds.slice(i, i + BATCH_SIZE);
+        const url = `${API_BASE}/audio-features?ids=${slice.join(',')}`;
+        const res = await fetch(url, {
+            headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        if (data?.audio_features) {
+            allFeatures.push(...data.audio_features.filter(Boolean));
+        }
+    }
+
+    if (allFeatures.length === 0) return null;
+
+    const sum = allFeatures.reduce(
+        (acc, f) => {
+            acc.energy += f.energy ?? 0;
+            acc.danceability += f.danceability ?? 0;
+            acc.valence += f.valence ?? 0;
+            return acc;
+        },
+        { energy: 0, danceability: 0, valence: 0 }
+    );
+
+    const n = allFeatures.length;
+    const energy = sum.energy / n;
+    const danceability = sum.danceability / n;
+    const valence = sum.valence / n;
+
+    // Clasificación muy simple de mood
+    let dominantMood = 'desconocido';
+    if (energy < 0.4 && valence < 0.4) dominantMood = 'chill / melancólico';
+    else if (energy < 0.5 && valence >= 0.4) dominantMood = 'relajado';
+    else if (energy >= 0.5 && valence < 0.5) dominantMood = 'intenso';
+    else if (energy >= 0.5 && valence >= 0.5)
+        dominantMood = 'fiestero / alegre';
+
+    return {
+        dominantMood,
+        energy,
+        danceability,
+        valence,
+    };
+}
+
+/**
+ * Datos para PopularityWidget
+ * Devuelve {
+ *   average,
+ *   min,
+ *   max,
+ *   histogram: [{ range: '0–20', count }]
+ * }
+ */
+export function getPopularityStatsFromTracks(tracks) {
+    const pops = tracks
+        .map((t) => t.popularity)
+        .filter((p) => typeof p === 'number');
+
+    if (pops.length === 0) return null;
+
+    const total = pops.reduce((acc, p) => acc + p, 0);
+    const average = Math.round(total / pops.length);
+    const min = Math.min(...pops);
+    const max = Math.max(...pops);
+
+    // Histogramas en rangos de 20
+    const buckets = [
+        { label: '0–20', min: 0, max: 20 },
+        { label: '21–40', min: 21, max: 40 },
+        { label: '41–60', min: 41, max: 60 },
+        { label: '61–80', min: 61, max: 80 },
+        { label: '81–100', min: 81, max: 100 },
+    ];
+
+    const histogram = buckets.map((b) => ({
+        range: b.label,
+        count: pops.filter((p) => p >= b.min && p <= b.max).length,
+    }));
+
+    return {
+        average,
+        min,
+        max,
+        histogram,
+    };
 }
