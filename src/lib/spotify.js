@@ -527,8 +527,6 @@ export async function getPlaylistTracks(playlistId) {
     return tracks;
 }
 
-import { getValidAccessToken } from '@/lib/spotify';
-
 export async function fetchUserData() {
     const token = await getValidAccessToken();
     if (!token) throw new Error('No token válido');
