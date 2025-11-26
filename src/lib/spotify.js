@@ -6,7 +6,6 @@ const REFRESH_TOKEN_KEY = 'spotify_refresh_token';
 const EXPIRATION_KEY = 'spotify_token_expiration';
 
 export function getAccessToken() {
-    // Solo existe window/localStorage en el navegador
     if (typeof window === 'undefined') {
         return null;
     }
@@ -25,7 +24,7 @@ export function getAccessToken() {
 
     const now = Date.now();
     if (now >= expiresAt) {
-        return null; //TODO que hacemos si el token esta caducado?! Usamos auth.js para renovarlo?
+        return null;
     }
 
     return accessToken;
@@ -35,7 +34,7 @@ export function getAccessToken() {
  * Genera una playlist según las preferencias seleccionadas.
  * artists: [{ id }]
  * genres: [string]
- * decades: ['1980', '1990', ...]  // año de inicio de la década
+ * decades: ['1980', '1990', ...]  // [translate:año de inicio de la década]
  * popularity: [min, max]
  */
 export async function generatePlaylist(preferences) {
@@ -329,4 +328,151 @@ export function getPopularityStatsFromTracks(tracks) {
         max,
         histogram,
     };
+}
+
+/**
+ * Crea una nueva playlist en la cuenta del usuario y añade tracks.
+ * name: nombre de la playlist
+ * description: descripción de la playlist
+ * trackUris: array de URIs de tracks (ej: spotify:track:ID)
+ */
+export async function createPlaylistWithTracks(name, description, trackUris) {
+    const token = getAccessToken();
+
+    // Obtener id usuario actual
+    const userRes = await fetch(`${API_BASE}/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+    });
+    const userData = await userRes.json();
+
+    // Crear playlist
+    const createRes = await fetch(
+        `${API_BASE}/users/${userData.id}/playlists`,
+        {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                name,
+                description,
+                public: false,
+            }),
+        }
+    );
+    const playlist = await createRes.json();
+
+    // Añadir tracks (en batches de max 100)
+    const BATCH_SIZE = 100;
+    for (let i = 0; i < trackUris.length; i += BATCH_SIZE) {
+        const batch = trackUris.slice(i, i + BATCH_SIZE);
+        await fetch(`${API_BASE}/playlists/${playlist.id}/tracks`, {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ uris: batch }),
+        });
+    }
+
+    return playlist;
+}
+
+/**
+ * Obtiene los top artistas del usuario
+ * timeRange: 'short_term', 'medium_term' o 'long_term'
+ * limit: número máximo de items
+ */
+export async function getUserTopArtists(timeRange = 'medium_term', limit = 20) {
+    const token = getAccessToken();
+    const res = await fetch(
+        `${API_BASE}/me/top/artists?time_range=${timeRange}&limit=${limit}`,
+        {
+            headers: { Authorization: `Bearer ${token}` },
+        }
+    );
+    const data = await res.json();
+    return data.items || [];
+}
+
+/**
+ * Obtiene los top tracks del usuario
+ */
+export async function getUserTopTracks(timeRange = 'medium_term', limit = 20) {
+    const token = getAccessToken();
+    const res = await fetch(
+        `${API_BASE}/me/top/tracks?time_range=${timeRange}&limit=${limit}`,
+        {
+            headers: { Authorization: `Bearer ${token}` },
+        }
+    );
+    const data = await res.json();
+    return data.items || [];
+}
+
+/**
+ * Obtiene todas las playlists del usuario
+ */
+export async function getUserPlaylists(limit = 50) {
+    const token = getAccessToken();
+    const res = await fetch(`${API_BASE}/me/playlists?limit=${limit}`, {
+        headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json();
+    return data.items || [];
+}
+
+/**
+ * Obtiene canciones guardadas (Me Gusta) del usuario
+ */
+export async function getUserSavedTracks(limit = 50) {
+    const token = getAccessToken();
+    const res = await fetch(`${API_BASE}/me/tracks?limit=${limit}`, {
+        headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json();
+    return data.items.map((item) => item.track) || [];
+}
+
+/**
+ * Obtiene el historial reciente de reproducciones
+ */
+export async function getRecentlyPlayed(limit = 50) {
+    const token = getAccessToken();
+    const res = await fetch(
+        `${API_BASE}/me/player/recently-played?limit=${limit}`,
+        {
+            headers: { Authorization: `Bearer ${token}` },
+        }
+    );
+    const data = await res.json();
+    return data.items.map((item) => item.track) || [];
+}
+
+export async function getPlaylistTracks(playlistId) {
+    const token = getAccessToken();
+    let tracks = [];
+    let url = `${API_BASE}/playlists/${playlistId}/tracks?limit=100`;
+
+    while (url) {
+        const res = await fetch(url, {
+            headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!res.ok) {
+            const errorInfo = await res.json();
+            console.error('Spotify API Error:', errorInfo);
+            throw new Error(`Spotify API error: ${errorInfo.error.message}`);
+        }
+
+        const data = await res.json();
+        tracks.push(
+            ...(data.items || []).map((item) => item.track).filter(Boolean)
+        );
+        url = data.next;
+    }
+
+    return tracks;
 }
