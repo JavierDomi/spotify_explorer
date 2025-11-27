@@ -1,4 +1,3 @@
-// ecosystem.config.js ← CORREGIDO
 module.exports = {
     apps: [
         {
@@ -6,6 +5,7 @@ module.exports = {
             script: 'pnpm',
             args: 'start',
             cwd: '/var/www/spotify_explorer',
+            env_file: './.env',
             instances: 1,
             autorestart: true,
             watch: false,
