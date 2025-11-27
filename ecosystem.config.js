@@ -9,11 +9,12 @@ module.exports = {
             autorestart: true,
             watch: false,
             max_memory_restart: '1G',
+            node_args: '-r dotenv/config',
             env_production: {
                 NODE_ENV: 'production',
                 PORT: 3000,
+                DOTENV_CONFIG_PATH: '/var/www/spotify_explorer/.env',
             },
-            env_file: '/var/www/spotify_explorer/.env',
         },
     ],
 };
