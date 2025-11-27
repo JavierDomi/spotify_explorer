@@ -1,11 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-    output: 'standalone', // Para producción standalone
-
-    // Desactivar prerenderizado problemático
+    output: 'standalone',
     generateStaticParams: async () => [],
-
-    // Fuerza dynamic rendering para auth callback
     async rewrites() {
         return [
             {
@@ -17,4 +13,4 @@ const nextConfig = {
     },
 };
 
-module.exports = nextConfig;
+export default nextConfig;
