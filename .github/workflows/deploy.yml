@@ -27,6 +27,15 @@ jobs:
             - name: Approve pnpm build scripts
               run: pnpm approve-builds || true
 
+            - name: Create .env file for build
+              run: |
+                  cat > .env << EOF
+                  SPOTIFY_CLIENT_ID=${{ secrets.SPOTIFY_CLIENT_ID }}
+                  SPOTIFY_CLIENT_SECRET=${{ secrets.SPOTIFY_CLIENT_SECRET }}
+                  NEXT_PUBLIC_SPOTIFY_CLIENT_ID=${{ secrets.SPOTIFY_CLIENT_ID }}
+                  NEXT_PUBLIC_REDIRECT_URI=${{ secrets.NEXT_PUBLIC_REDIRECT_URI }}
+                  EOF
+
             - name: Build application
               run: pnpm build
 
@@ -35,12 +44,23 @@ jobs:
                   rsync -avz --delete \
                     --exclude '.git' \
                     --exclude 'node_modules' \
-                    --exclude '.env' \
-                    --exclude '.env.local' \
                     ./ /var/www/spotify_explorer/
 
+            - name: Install production dependencies
+              run: |
                   cd /var/www/spotify_explorer
-                  pnpm install --frozen-lockfile
+                  pnpm install --frozen-lockfile --prod
+
+            - name: Create production .env file
+              run: |
+                  cat > /var/www/spotify_explorer/.env << EOF
+                  SPOTIFY_CLIENT_ID=${{ secrets.SPOTIFY_CLIENT_ID }}
+                  SPOTIFY_CLIENT_SECRET=${{ secrets.SPOTIFY_CLIENT_SECRET }}
+                  NEXT_PUBLIC_SPOTIFY_CLIENT_ID=${{ secrets.SPOTIFY_CLIENT_ID }}
+                  NEXT_PUBLIC_REDIRECT_URI=${{ secrets.NEXT_PUBLIC_REDIRECT_URI }}
+                  NODE_ENV=production
+                  PORT=3000
+                  EOF
 
             - name: Deploy with PM2
               run: |
@@ -54,5 +74,5 @@ jobs:
 
             - name: Health check
               run: |
-                  sleep 3
+                  sleep 5
                   curl -f http://localhost:3000 || echo "Health check failed"

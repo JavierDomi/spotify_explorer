@@ -1,10 +1,9 @@
-// ecosystem.config.js
 module.exports = {
     apps: [
         {
             name: 'spotify_explorer',
-            script: 'node',
-            args: '--env-file .env node_modules/.bin/next start',
+            script: 'node_modules/.bin/next',
+            args: 'start',
             cwd: '/var/www/spotify_explorer',
             instances: 1,
             autorestart: true,
@@ -14,6 +13,7 @@ module.exports = {
                 NODE_ENV: 'production',
                 PORT: 3000,
             },
+            env_file: '/var/www/spotify_explorer/.env',
         },
     ],
 };
