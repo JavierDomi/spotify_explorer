@@ -10,13 +10,12 @@ jobs:
             - name: Checkout code
               uses: actions/checkout@v4
               with:
-                  fetch-depth: 0 # Para git pull
+                  fetch-depth: 0
 
             - name: Setup Node.js
               uses: actions/setup-node@v4
               with:
                   node-version: '20'
-                  cache: 'pnpm'
 
             - name: Install pnpm
               run: npm install -g pnpm
@@ -25,7 +24,7 @@ jobs:
               run: pnpm install --frozen-lockfile
 
             - name: Approve pnpm build scripts
-              run: pnpm approve-builds || true # Ignora si ya aprobado
+              run: pnpm approve-builds || true
 
             - name: Build application
               run: pnpm build
