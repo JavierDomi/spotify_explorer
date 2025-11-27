@@ -6,16 +6,12 @@ on:
 jobs:
     deploy:
         runs-on: self-hosted
-        defaults:
-            run:
-                working-directory: /var/www/spotify_explorer
 
         steps:
             - name: Checkout code
               uses: actions/checkout@v4
               with:
                   fetch-depth: 0
-                  path: /var/www/spotify_explorer
 
             - name: Setup Node.js
               uses: actions/setup-node@v4
@@ -34,8 +30,13 @@ jobs:
             - name: Build application
               run: pnpm build
 
+            - name: Sync to /var/www/spotify_explorer
+              run: |
+                  rsync -a --delete ./ /var/www/spotify_explorer
+
             - name: Deploy with PM2
               run: |
+                  cd /var/www/spotify_explorer
                   if pm2 describe spotify_explorer > /dev/null 2>&1; then
                     pm2 restart spotify_explorer
                   else
