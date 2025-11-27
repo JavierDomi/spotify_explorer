@@ -1,0 +1,42 @@
+name: Deploy Spotify Explorer
+on:
+    push:
+        branches: [main]
+
+jobs:
+    deploy:
+        runs-on: self-hosted
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+              with:
+                  fetch-depth: 0 # Para git pull
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '20'
+                  cache: 'pnpm'
+
+            - name: Install dependencies
+              run: pnpm install --frozen-lockfile
+
+            - name: Approve pnpm build scripts
+              run: pnpm approve-builds || true # Ignora si ya aprobado
+
+            - name: Build application
+              run: pnpm build
+
+            - name: Deploy with PM2
+              run: |
+                  if pm2 describe spotify_explorer > /dev/null 2>&1; then
+                    pm2 restart spotify_explorer
+                  else
+                    pm2 start ecosystem.config.js --env production
+                  fi
+                  pm2 save
+
+            - name: Health check
+              run: |
+                  sleep 3
+                  curl -f http://localhost:3000 || echo "Health check failed"
