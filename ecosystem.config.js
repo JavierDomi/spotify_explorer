@@ -1,4 +1,4 @@
-// ecosystem.config.js (en raíz del proyecto)
+// ecosystem.config.js ← CORREGIDO
 module.exports = {
     apps: [
         {
@@ -10,7 +10,7 @@ module.exports = {
             autorestart: true,
             watch: false,
             max_memory_restart: '1G',
-            env: {
+            env_production: {
                 NODE_ENV: 'production',
                 PORT: 3000,
             },
