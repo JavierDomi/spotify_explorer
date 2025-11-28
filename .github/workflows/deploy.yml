@@ -18,27 +18,27 @@ jobs:
             - name: Install pnpm
               run: npm install -g pnpm
 
-            - name: Build
+            - name: Build & Deploy LOCAL
               run: |
+                  # BUILD LOCAL en runner
                   pnpm install --frozen-lockfile
                   pnpm build
 
-            - name: Deploy TODO
-              run: |
+                  # LIMPIAR servidor
                   rm -rf /var/www/spotify_explorer/*
+
+                  # COPIAR TODO INCLUYENDO .next
                   rsync -avz --delete \
                     --exclude='.git' \
                     --exclude='node_modules' \
-                    --exclude='.github' \
-                    --exclude='*.md' \
                     ./ /var/www/spotify_explorer/
 
+                  # INSTALAR PROD en servidor
                   cd /var/www/spotify_explorer
                   pnpm install --prod --frozen-lockfile
 
-                  # VERIFICAR archivos estáticos
-                  echo "=== VERIFICANDO STATIC CHUNKS ==="
-                  ls -la .next/static/chunks/ | head -5 || echo "Chunks OK"
+                  # VERIFICAR .next
+                  echo "=== CHUNKS VERIFICADOS ==="
+                  ls -la /var/www/spotify_explorer/.next/static/chunks/ | head -5
 
-                  pm2 restart spotify_explorer || pm2 start ecosystem.config.js --env production
-                  pm2 save
+                  pm2 restart spotify_explorer
