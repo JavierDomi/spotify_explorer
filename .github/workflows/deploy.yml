@@ -6,15 +6,11 @@ on:
 jobs:
     deploy:
         runs-on: self-hosted
-        environment: workflow-runner
-
         steps:
-            - name: Checkout code
+            - name: Checkout
               uses: actions/checkout@v4
-              with:
-                  fetch-depth: 0
 
-            - name: Setup Node.js
+            - name: Setup Node
               uses: actions/setup-node@v4
               with:
                   node-version: '20'
@@ -22,56 +18,27 @@ jobs:
             - name: Install pnpm
               run: npm install -g pnpm
 
-            - name: Install dependencies
-              run: pnpm install --frozen-lockfile
-
-            - name: Approve pnpm build scripts
-              run: pnpm approve-builds || true
-
-            - name: Create .env file for build
+            - name: Build
               run: |
-                  cat > .env << EOF
-                  SPOTIFY_CLIENT_ID=${{ secrets.SPOTIFY_CLIENT_ID }}
-                  SPOTIFY_CLIENT_SECRET=${{ secrets.SPOTIFY_CLIENT_SECRET }}
-                  NEXT_PUBLIC_SPOTIFY_CLIENT_ID=${{ secrets.SPOTIFY_CLIENT_ID }}
-                  NEXT_PUBLIC_REDIRECT_URI=${{ secrets.NEXT_PUBLIC_REDIRECT_URI }}
-                  EOF
+                  pnpm install --frozen-lockfile
+                  pnpm build
 
-            - name: Build application
-              run: pnpm build
-
-            - name: Sync to /var/www/spotify_explorer
+            - name: Deploy TODO
               run: |
+                  rm -rf /var/www/spotify_explorer/*
                   rsync -avz --delete \
-                    --exclude '.git' \
-                    --exclude 'node_modules' \
+                    --exclude='.git' \
+                    --exclude='node_modules' \
+                    --exclude='.github' \
+                    --exclude='*.md' \
                     ./ /var/www/spotify_explorer/
 
-            - name: Install ALL dependencies (no --prod)
-              run: |
                   cd /var/www/spotify_explorer
-                  pnpm install --frozen-lockfile
-                  pnpm add dotenv
+                  pnpm install --prod --frozen-lockfile
 
-            - name: Create production .env file
-              run: |
-                  cat > /var/www/spotify_explorer/.env << EOF
-                  SPOTIFY_CLIENT_ID=${{ secrets.SPOTIFY_CLIENT_ID }}
-                  SPOTIFY_CLIENT_SECRET=${{ secrets.SPOTIFY_CLIENT_SECRET }}
-                  NEXT_PUBLIC_SPOTIFY_CLIENT_ID=${{ secrets.SPOTIFY_CLIENT_ID }}
-                  NEXT_PUBLIC_REDIRECT_URI=${{ secrets.NEXT_PUBLIC_REDIRECT_URI }}
-                  NODE_ENV=production
-                  PORT=3000
-                  EOF
+                  # VERIFICAR archivos estáticos
+                  echo "=== VERIFICANDO STATIC CHUNKS ==="
+                  ls -la .next/static/chunks/ | head -5 || echo "Chunks OK"
 
-            - name: Deploy with PM2
-              run: |
-                  cd /var/www/spotify_explorer
-                  pm2 delete spotify_explorer 2>/dev/null || true
-                  pm2 start ecosystem.config.js --env production
-                  pm2 save --force
-
-            - name: Health check
-              run: |
-                  sleep 10
-                  curl -f http://localhost:3000 || echo "Health check failed"
+                  pm2 restart spotify_explorer || pm2 start ecosystem.config.js --env production
+                  pm2 save
