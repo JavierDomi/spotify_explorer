@@ -9,7 +9,10 @@ import PopularityWidget from '@/components/widgets/PopularityWidget';
 import TracksListWidget from '@/components/widgets/TracksListWidget';
 
 import {
-    generatePlaylist,
+    getUserTopArtists,
+    getUserTopTracks,
+    getRecentlyPlayed,
+    getUserSavedTracks,
     getArtistStatsFromTracks,
     getGenreStatsFromTracks,
     getDecadeStatsFromTracks,
@@ -28,83 +31,96 @@ export default function DashboardPage() {
     const [mood, setMood] = useState(null);
     const [popularity, setPopularity] = useState(null);
     const [saving, setSaving] = useState(false);
+    const [userStats, setUserStats] = useState(null);
+
+    async function load() {
+        try {
+            setLoading(true);
+            setError(null);
+
+            // 1. Obtener datos reales del usuario (paralelo para mejor performance)
+            const [topArtists, topTracks, recentlyPlayed, savedTracks] =
+                await Promise.all([
+                    getUserTopArtists('medium_term', 50),
+                    getUserTopTracks('medium_term', 50),
+                    getRecentlyPlayed(50),
+                    getUserSavedTracks(50),
+                ]);
+
+            // 2. Combinar todos los tracks del usuario (top + recent + saved)
+            const allUserTracks = [
+                ...topTracks.map((t) => ({ ...t, source: 'top' })),
+                ...recentlyPlayed.map((t) => ({ ...t, source: 'recent' })),
+                ...savedTracks.map((t) => ({ ...t, source: 'saved' })),
+            ];
+
+            // Eliminar duplicados manteniendo el primero encontrado
+            const uniqueTracks = Array.from(
+                new Map(allUserTracks.map((t) => [t.id, t])).values()
+            ).slice(0, 100); // Limitar a 100 para performance
+
+            setTracks(uniqueTracks);
+            setUserStats({
+                topArtistsCount: topArtists.length,
+                totalTracksAnalyzed: uniqueTracks.length,
+                sources: {
+                    top: topTracks.length,
+                    recent: recentlyPlayed.length,
+                    saved: savedTracks.length,
+                },
+            });
+
+            // 3. Generar estadísticas desde los tracks reales del usuario
+            const artistsForWidget = await getArtistStatsFromTracks(
+                uniqueTracks
+            );
+            const artistsById = {};
+            artistsForWidget.forEach((a) => {
+                artistsById[a.id] = a;
+            });
+
+            const genreStats = getGenreStatsFromTracks(
+                uniqueTracks,
+                artistsById
+            );
+            const decadeStats = getDecadeStatsFromTracks(uniqueTracks);
+            const moodSummary = await getMoodSummaryFromTracks(uniqueTracks);
+            const popularityStats = getPopularityStatsFromTracks(uniqueTracks);
+
+            setArtists(artistsForWidget);
+            setGenres(genreStats);
+            setDecades(decadeStats);
+            setMood(moodSummary);
+            setPopularity(popularityStats);
+        } catch (err) {
+            console.error(err);
+            setError(
+                'No se pudieron cargar tus datos de Spotify. Verifica tu conexión.'
+            );
+        } finally {
+            setLoading(false);
+        }
+    }
 
     useEffect(() => {
-        let cancelled = false;
-
-        async function load() {
-            try {
-                setLoading(true);
-                setError(null);
-
-                const preferences = {
-                    artists: [],
-                    genres: ['rock', 'pop'],
-                    decades: ['2000', '2010'],
-                    popularity: [20, 90],
-                };
-
-                const generatedTracks = await generatePlaylist(preferences);
-                if (cancelled) return;
-
-                const artistsForWidget = await getArtistStatsFromTracks(
-                    generatedTracks
-                );
-
-                const artistsById = {};
-                artistsForWidget.forEach((a) => {
-                    artistsById[a.id] = a;
-                });
-
-                const genreStats = getGenreStatsFromTracks(
-                    generatedTracks,
-                    artistsById
-                );
-                const decadeStats = getDecadeStatsFromTracks(generatedTracks);
-                const moodSummary = await getMoodSummaryFromTracks(
-                    generatedTracks
-                );
-                const popularityStats =
-                    getPopularityStatsFromTracks(generatedTracks);
-
-                if (cancelled) return;
-
-                setTracks(generatedTracks);
-                setArtists(artistsForWidget);
-                setGenres(genreStats);
-                setDecades(decadeStats);
-                setMood(moodSummary);
-                setPopularity(popularityStats);
-            } catch (err) {
-                if (!cancelled) {
-                    console.error(err);
-                    setError('No se pudieron cargar los datos de la mezcla.');
-                }
-            } finally {
-                if (!cancelled) setLoading(false);
-            }
-        }
-
         load();
-
-        return () => {
-            cancelled = true;
-        };
     }, []);
 
     const handleSavePlaylist = async () => {
         try {
             setSaving(true);
-            const trackUris = tracks.map((t) => `spotify:track:${t.id}`);
+            const trackUris = tracks
+                .slice(0, 50)
+                .map((t) => `spotify:track:${t.id}`);
             const date = new Date().toLocaleDateString('es-ES');
 
             await createPlaylistWithTracks(
-                `Mi Mezcla - ${date}`,
-                'Playlist generada automáticamente con Spotify Mixer',
+                `Mi Perfil Spotify - ${date}`,
+                'Análisis automático de tu historial de Spotify',
                 trackUris
             );
 
-            alert('¡Playlist guardada en tu cuenta de Spotify!');
+            alert('¡Playlist de tu perfil guardada en Spotify!');
         } catch (err) {
             console.error(err);
             alert('Error al guardar la playlist');
@@ -114,7 +130,7 @@ export default function DashboardPage() {
     };
 
     const handleRegenerate = () => {
-        window.location.reload();
+        load();
     };
 
     if (loading) {
@@ -123,7 +139,7 @@ export default function DashboardPage() {
                 <div className="glass-card p-8 text-center">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500 mx-auto mb-4"></div>
                     <p className="text-zinc-300">
-                        Cargando mezcla desde Spotify...
+                        Analizando tu perfil de Spotify...
                     </p>
                 </div>
             </div>
@@ -146,15 +162,14 @@ export default function DashboardPage() {
 
     return (
         <div className="space-y-6">
-            {/* Header con acciones */}
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
                     <h2 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-green-400 to-blue-500 bg-clip-text text-transparent">
-                        Tu Mezcla Personalizada
+                        Tu Perfil de Spotify
                     </h2>
                     <p className="text-zinc-400 mt-1">
-                        Generada con {tracks.length} canciones ·{' '}
-                        {artists.length} artistas · {genres.length} géneros
+                        Analizado con {tracks.length} canciones únicas de tu
+                        historial
                     </p>
                 </div>
 
@@ -170,32 +185,26 @@ export default function DashboardPage() {
                                 Guardando...
                             </>
                         ) : (
-                            <>💾 Guardar en Spotify</>
+                            <>Guardar Mi Perfil</>
                         )}
                     </button>
                     <button
                         onClick={handleRegenerate}
                         className="glass-card px-5 py-2.5 text-sm font-medium hover:bg-blue-500/20 transition-all duration-200 hover:scale-105 flex items-center gap-2"
                     >
-                        🔄 Regenerar
+                        Actualizar
                     </button>
                 </div>
             </div>
 
-            {/* Grid de widgets */}
             <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-                {/* Fila 1: Artistas destacados (ocupa 2 columnas en XL) */}
                 <div className="xl:col-span-2">
                     <ArtistWidget topArtists={artists.slice(0, 6)} />
                 </div>
                 <GenderWidget genreStats={genres} />
-
-                {/* Fila 2: Estadísticas */}
                 <DecadeWidget decadeStats={decades} />
                 <MoodWidget moodSummary={mood} />
                 <PopularityWidget popularityStats={popularity} />
-
-                {/* Fila 3: Lista de tracks (ocupa todo el ancho) */}
                 <div className="md:col-span-2 xl:col-span-3">
                     <TracksListWidget tracks={tracks.slice(0, 10)} />
                 </div>

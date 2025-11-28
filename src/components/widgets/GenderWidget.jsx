@@ -1,6 +1,3 @@
-// widgets/GenderWidget.jsx
-// (si prefieres, renombra a GenreWidget.jsx)
-
 export default function GenderWidget({ genreStats = [] }) {
     // genreStats: [{ name: 'rock', count: 34, percentage: 0.27 }, ...]
 
@@ -22,7 +19,7 @@ export default function GenderWidget({ genreStats = [] }) {
                     Aún no hay géneros calculados para esta mezcla.
                 </p>
             ) : (
-                <ul className="space-y-2">
+                <ul className="space-y-2 max-h-60 overflow-y-auto pr-1">
                     {genreStats.map((genre) => {
                         const percent = Math.round(
                             (genre.percentage || genre.count / total || 0) * 100
