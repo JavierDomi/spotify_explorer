@@ -211,7 +211,7 @@ export async function getArtistStatsFromTracks(tracks) {
 }
 
 /**
- * Datos para GenderWidget (géneros)
+ * Datos para GenreWidget (géneros)
  * Devuelve [{ name, count, percentage }]
  */
 export function getGenreStatsFromTracks(tracks, artistsById = {}) {

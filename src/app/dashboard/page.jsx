@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import ArtistWidget from '@/components/widgets/ArtistWidget';
-import GenderWidget from '@/components/widgets/GenderWidget';
+import GenreWideget from '@/components/widgets/GenreWidget';
 import DecadeWidget from '@/components/widgets/DecadeWidget';
 import MoodWidget from '@/components/widgets/MoodWidget';
 import PopularityWidget from '@/components/widgets/PopularityWidget';
@@ -201,7 +201,7 @@ export default function DashboardPage() {
                 <div className="xl:col-span-2">
                     <ArtistWidget topArtists={artists.slice(0, 6)} />
                 </div>
-                <GenderWidget genreStats={genres} />
+                <GenreWidget genreStats={genres} />
                 <DecadeWidget decadeStats={decades} />
                 <MoodWidget moodSummary={mood} />
                 <PopularityWidget popularityStats={popularity} />

@@ -1,4 +1,4 @@
-export default function GenderWidget({ genreStats = [] }) {
+export default function GenreWidget({ genreStats = [] }) {
     // genreStats: [{ name: 'rock', count: 34, percentage: 0.27 }, ...]
 
     const total = genreStats.reduce((acc, g) => acc + (g.count || 0), 0);
