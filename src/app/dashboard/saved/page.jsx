@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getUserSavedTracks } from '@/lib/spotify';
+import { getUserSavedTracks } from '@/lib/index';
 import TracksListWidget from '@/components/widgets/TracksListWidget';
 
 export default function SavedPage() {

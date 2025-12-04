@@ -1,4 +1,4 @@
-import { getPlaylistTracks } from '@/lib/spotify';
+import { getPlaylistTracks } from '@/lib/index';
 
 export default async function PlaylistTracksPage({ params }) {
     const { id } = await params;

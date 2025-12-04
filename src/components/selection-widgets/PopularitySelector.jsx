@@ -2,14 +2,14 @@
 
 export default function PopularitySelector({ onSelect, range = [0, 100] }) {
     const presets = [
-        { label: 'Mainstream 🔥', range: [80, 100], desc: 'Hits del momento' },
+        { label: 'Mainstream', range: [80, 100], desc: 'Hits del momento' },
         {
-            label: 'Popular 🎵',
+            label: 'Popular',
             range: [50, 80],
             desc: 'Conocidas pero no masivas',
         },
-        { label: 'Underground 💎', range: [0, 50], desc: 'Joyas ocultas' },
-        { label: 'Todo 🌍', range: [0, 100], desc: 'Sin filtro' },
+        { label: 'Underground', range: [0, 50], desc: 'Joyas ocultas' },
+        { label: 'Todo', range: [0, 100], desc: 'Sin filtro' },
     ];
 
     return (

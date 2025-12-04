@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { getUserPlaylists } from '@/lib/spotify';
+import { getUserPlaylists } from '@/lib/index';
 
 export default function PlaylistsPage() {
     const [loading, setLoading] = useState(true);

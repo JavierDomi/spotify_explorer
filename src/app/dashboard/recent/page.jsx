@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getRecentlyPlayed } from '@/lib/spotify';
+import { getRecentlyPlayed } from '@/lib/index';
 import TracksListWidget from '@/components/widgets/TracksListWidget';
 
 export default function RecentPage() {

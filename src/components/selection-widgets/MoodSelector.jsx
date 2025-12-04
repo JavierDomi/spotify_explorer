@@ -10,19 +10,19 @@ export default function MoodSelector({
 
     const presets = [
         {
-            name: 'Fiesta 🎉',
+            name: 'Fiesta',
             values: { energy: 0.9, valence: 0.8, danceability: 0.9 },
         },
         {
-            name: 'Chill 😌',
+            name: 'Chill',
             values: { energy: 0.3, valence: 0.6, danceability: 0.4 },
         },
         {
-            name: 'Triste 😢',
+            name: 'Triste',
             values: { energy: 0.3, valence: 0.2, danceability: 0.3 },
         },
         {
-            name: 'Workout 💪',
+            name: 'Workout',
             values: { energy: 0.95, valence: 0.7, danceability: 0.8 },
         },
     ];
@@ -62,32 +62,27 @@ export default function MoodSelector({
                     label="Energía"
                     value={moodValues.energy}
                     onChange={(v) => handleChange('energy', v)}
-                    emoji="⚡"
                 />
                 <SliderRow
                     label="Positividad"
                     value={moodValues.valence}
                     onChange={(v) => handleChange('valence', v)}
-                    emoji="😊"
                 />
                 <SliderRow
                     label="Bailabilidad"
                     value={moodValues.danceability}
                     onChange={(v) => handleChange('danceability', v)}
-                    emoji="💃"
                 />
             </div>
         </section>
     );
 }
 
-function SliderRow({ label, value, onChange, emoji }) {
+function SliderRow({ label, value, onChange }) {
     return (
         <div>
             <div className="flex justify-between text-xs mb-2">
-                <span className="text-zinc-300">
-                    {emoji} {label}
-                </span>
+                <span className="text-zinc-300">{label}</span>
                 <span className="text-emerald-400 font-medium">
                     {Math.round(value * 100)}%
                 </span>

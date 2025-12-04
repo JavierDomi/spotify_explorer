@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { getUserTopArtists, getUserTopTracks } from '@/lib/spotify';
+import { getUserTopArtists, getUserTopTracks } from '@/lib/index';
 import ArtistWidget from '@/components/widgets/ArtistWidget';
 import TracksListWidget from '@/components/widgets/TracksListWidget';
 

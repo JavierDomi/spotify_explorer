@@ -27,7 +27,7 @@ import {
     getMoodSummaryFromTracks,
     getPopularityStatsFromTracks,
     createPlaylistWithTracks,
-} from '@/lib/spotify';
+} from '@/lib/index';
 
 export default function MixerPage() {
     // Selection States

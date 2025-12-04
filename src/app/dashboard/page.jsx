@@ -19,7 +19,7 @@ import {
     getMoodSummaryFromTracks,
     getPopularityStatsFromTracks,
     createPlaylistWithTracks,
-} from '@/lib/spotify';
+} from '@/lib/index';
 
 export default function DashboardPage() {
     const [loading, setLoading] = useState(true);

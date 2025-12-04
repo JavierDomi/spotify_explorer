@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { saveTokens } from '@/lib/auth';
+import { saveTokens } from '@/lib/index';
 
 /**
  * FIX PARA NEXT.JS 16 BUILD ERROR:
