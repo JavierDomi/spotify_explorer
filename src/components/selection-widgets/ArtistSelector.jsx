@@ -1,102 +1,283 @@
 'use client';
-import { useState, useEffect } from 'react';
 
-export default function ArtistWidget({ onSelect, selectedArtists = [] }) {
+import { useState, useEffect } from 'react';
+import { Search, X, User } from 'lucide-react';
+
+export default function ArtistSelector({
+    onSelect,
+    selectedArtists = [],
+    maxArtists = 5,
+}) {
     const [query, setQuery] = useState('');
+    const [debouncedQuery, setDebouncedQuery] = useState('');
     const [results, setResults] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
 
-    // Debouncing para búsqueda
+    // Debouncing
     useEffect(() => {
-        if (!query.trim()) {
-            setResults([]);
-            return;
-        }
-
-        const timer = setTimeout(async () => {
-            setLoading(true);
-            try {
-                const token = localStorage.getItem('spotify_token');
-                const res = await fetch(
-                    `https://api.spotify.com/v1/search?type=artist&q=${encodeURIComponent(
-                        query
-                    )}&limit=10`,
-                    { headers: { Authorization: `Bearer ${token}` } }
-                );
-                const data = await res.json();
-                setResults(data.artists?.items || []);
-            } catch (err) {
-                console.error(err);
-            } finally {
-                setLoading(false);
-            }
-        }, 500); // Debounce de 500ms
-
+        const timer = setTimeout(() => {
+            setDebouncedQuery(query);
+        }, 500);
         return () => clearTimeout(timer);
     }, [query]);
 
+    // Buscar artistas
+    useEffect(() => {
+        if (!debouncedQuery.trim()) {
+            setResults([]);
+            setError(null);
+            return;
+        }
+        searchArtists(debouncedQuery);
+    }, [debouncedQuery]);
+
+    const searchArtists = async (searchQuery) => {
+        setLoading(true);
+        setError(null);
+
+        try {
+            const token = localStorage.getItem('spotify_token');
+            if (!token) throw new Error('No hay token de autenticación');
+
+            const res = await fetch(
+                `https://api.spotify.com/v1/search?type=artist&q=${encodeURIComponent(
+                    searchQuery
+                )}&limit=20`,
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+
+            if (!res.ok) {
+                if (res.status === 401) {
+                    throw new Error(
+                        'Token expirado. Por favor, vuelve a iniciar sesión.'
+                    );
+                }
+                throw new Error(`Error ${res.status}`);
+            }
+
+            const data = await res.json();
+            setResults(data.artists?.items || []);
+        } catch (err) {
+            console.error('Error buscando artistas:', err);
+            setError(err.message);
+            setResults([]);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const toggleArtist = (artist) => {
         const isSelected = selectedArtists.some((a) => a.id === artist.id);
+
         if (isSelected) {
             onSelect(selectedArtists.filter((a) => a.id !== artist.id));
-        } else if (selectedArtists.length < 5) {
+        } else if (selectedArtists.length < maxArtists) {
             onSelect([...selectedArtists, artist]);
         }
     };
 
+    const removeArtist = (artistId) => {
+        onSelect(selectedArtists.filter((a) => a.id !== artistId));
+    };
+
+    const clearSelection = () => {
+        onSelect([]);
+    };
+
     return (
-        <section className="glass-card p-4 space-y-4">
-            <h2 className="text-sm font-semibold">Buscar Artistas</h2>
+        <section className="glass-card p-4 md:p-5 space-y-4">
+            <header className="flex items-center justify-between">
+                <div>
+                    <h2 className="text-sm font-semibold tracking-tight">
+                        Buscar Artistas
+                    </h2>
+                    <p className="text-[11px] text-zinc-400 mt-0.5">
+                        Selecciona hasta {maxArtists} artistas
+                    </p>
+                </div>
+                {selectedArtists.length > 0 && (
+                    <span className="text-xs text-emerald-400 font-medium">
+                        {selectedArtists.length}/{maxArtists}
+                    </span>
+                )}
+            </header>
 
-            <input
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Busca artistas..."
-                className="w-full px-3 py-2 rounded bg-zinc-800 text-sm"
-            />
+            {/* Search Input */}
+            <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+                <input
+                    type="text"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Busca artistas..."
+                    className="w-full pl-10 pr-4 py-2 rounded-lg bg-zinc-900/60 border border-zinc-800 
+                             text-sm text-zinc-200 placeholder-zinc-500
+                             focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500"
+                />
+                {query && (
+                    <button
+                        onClick={() => setQuery('')}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-200"
+                    >
+                        <X className="w-4 h-4" />
+                    </button>
+                )}
+            </div>
 
-            {/* Artistas seleccionados */}
+            {/* Selected Artists */}
             {selectedArtists.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                    {selectedArtists.map((artist) => (
-                        <div
-                            key={artist.id}
-                            className="chip bg-emerald-500/20 text-emerald-400"
+                <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-zinc-300">
+                            Seleccionados
+                        </span>
+                        <button
+                            onClick={clearSelection}
+                            className="text-[11px] text-zinc-400 hover:text-red-400 transition"
                         >
-                            {artist.name}
-                            <button onClick={() => toggleArtist(artist)}>
-                                ×
-                            </button>
-                        </div>
-                    ))}
+                            Limpiar todo
+                        </button>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                        {selectedArtists.map((artist) => (
+                            <div
+                                key={artist.id}
+                                className="flex items-center gap-2 px-3 py-1.5 rounded-full 
+                                         bg-emerald-500/20 border border-emerald-500/30 group"
+                            >
+                                {artist.images?.[0] && (
+                                    <img
+                                        src={artist.images[0].url}
+                                        alt={artist.name}
+                                        className="w-5 h-5 rounded-full"
+                                    />
+                                )}
+                                <span className="text-xs text-emerald-300 truncate max-w-[100px]">
+                                    {artist.name}
+                                </span>
+                                <button
+                                    onClick={() => removeArtist(artist.id)}
+                                    className="text-emerald-400 hover:text-red-400 transition"
+                                >
+                                    <X className="w-3 h-3" />
+                                </button>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             )}
 
-            {/* Resultados de búsqueda */}
-            {loading && <p className="text-xs text-zinc-400">Buscando...</p>}
+            {/* Loading */}
+            {loading && (
+                <div className="flex items-center justify-center py-8">
+                    <div
+                        className="w-6 h-6 border-2 border-emerald-500 border-t-transparent 
+                                  rounded-full animate-spin"
+                    />
+                </div>
+            )}
 
-            <ul className="space-y-2 max-h-60 overflow-y-auto">
-                {results.map((artist) => (
-                    <li
-                        key={artist.id}
-                        onClick={() => toggleArtist(artist)}
-                        className="flex items-center gap-3 p-2 rounded cursor-pointer hover:bg-zinc-800"
-                    >
-                        {artist.images?.[0] && (
-                            <img
-                                src={artist.images[0].url}
-                                alt={artist.name}
-                                className="w-10 h-10 rounded-full"
-                            />
-                        )}
-                        <span className="text-sm">{artist.name}</span>
-                        {selectedArtists.some((a) => a.id === artist.id) && (
-                            <span className="ml-auto text-emerald-400">✓</span>
-                        )}
-                    </li>
-                ))}
-            </ul>
+            {/* Error */}
+            {error && (
+                <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30">
+                    <p className="text-xs text-red-400">{error}</p>
+                </div>
+            )}
+
+            {/* Results */}
+            {!loading && results.length > 0 && (
+                <div className="space-y-1 max-h-80 overflow-y-auto pr-1 custom-scrollbar">
+                    {results.map((artist) => {
+                        const selected = selectedArtists.some(
+                            (a) => a.id === artist.id
+                        );
+                        const atLimit =
+                            selectedArtists.length >= maxArtists && !selected;
+
+                        return (
+                            <button
+                                key={artist.id}
+                                onClick={() => !atLimit && toggleArtist(artist)}
+                                disabled={atLimit}
+                                className={`
+                                    w-full flex items-center gap-3 p-2 rounded-lg transition-all
+                                    ${
+                                        selected
+                                            ? 'bg-emerald-500/20 border border-emerald-500/40'
+                                            : 'hover:bg-zinc-800/50 border border-transparent'
+                                    }
+                                    ${
+                                        atLimit
+                                            ? 'opacity-40 cursor-not-allowed'
+                                            : 'cursor-pointer'
+                                    }
+                                `}
+                            >
+                                {artist.images?.[0] ? (
+                                    <img
+                                        src={artist.images[0].url}
+                                        alt={artist.name}
+                                        className="w-10 h-10 rounded-full"
+                                    />
+                                ) : (
+                                    <div className="w-10 h-10 rounded-full bg-zinc-800 flex items-center justify-center">
+                                        <User className="w-5 h-5 text-zinc-600" />
+                                    </div>
+                                )}
+
+                                <div className="flex-1 min-w-0 text-left">
+                                    <p
+                                        className={`text-xs font-medium truncate ${
+                                            selected
+                                                ? 'text-emerald-300'
+                                                : 'text-zinc-200'
+                                        }`}
+                                    >
+                                        {artist.name}
+                                    </p>
+                                    {artist.genres?.length > 0 && (
+                                        <p className="text-[11px] text-zinc-400 truncate">
+                                            {artist.genres
+                                                .slice(0, 2)
+                                                .join(', ')}
+                                        </p>
+                                    )}
+                                </div>
+
+                                {selected && (
+                                    <div className="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center">
+                                        <svg
+                                            className="w-3 h-3 text-white"
+                                            fill="none"
+                                            viewBox="0 0 24 24"
+                                            stroke="currentColor"
+                                        >
+                                            <path
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                strokeWidth={3}
+                                                d="M5 13l4 4L19 7"
+                                            />
+                                        </svg>
+                                    </div>
+                                )}
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
+
+            {/* Empty state */}
+            {!query && selectedArtists.length === 0 && (
+                <div className="text-center py-6">
+                    <User className="w-10 h-10 text-zinc-700 mx-auto mb-2" />
+                    <p className="text-xs text-zinc-500">
+                        Escribe para buscar artistas
+                    </p>
+                </div>
+            )}
         </section>
     );
 }

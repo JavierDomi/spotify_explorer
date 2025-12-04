@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import ArtistWidget from '@/components/widgets/ArtistWidget';
-import GenreWideget from '@/components/widgets/GenreWidget';
+import GenreWidget from '@/components/widgets/GenreWidget';
 import DecadeWidget from '@/components/widgets/DecadeWidget';
 import MoodWidget from '@/components/widgets/MoodWidget';
 import PopularityWidget from '@/components/widgets/PopularityWidget';

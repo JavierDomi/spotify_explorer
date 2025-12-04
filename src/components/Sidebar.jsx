@@ -20,6 +20,11 @@ const menuItems = [
         description: 'Resumen general',
     },
     {
+        href: '/dashboard/mixer',
+        label: 'Mixer',
+        icon: <QueueMusicIcon />,
+    },
+    {
         href: '/dashboard/my-top',
         label: 'Mis Tops',
         icon: <EmojiEventsIcon />,
