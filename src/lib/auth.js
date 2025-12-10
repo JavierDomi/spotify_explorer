@@ -6,10 +6,7 @@ const EXPIRATION_KEY = 'spotify_token_expiration';
 const AUTH_STATE_KEY = 'spotify_auth_state';
 const REFRESH_ENDPOINT = '/api/spotify/refresh';
 
-// ============================================
 // Utilidades
-// ============================================
-
 export function generateRandomString(length) {
     const possible =
         'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -20,10 +17,7 @@ export function generateRandomString(length) {
     return text;
 }
 
-// ============================================
-// Autenticación OAuth
-// ============================================
-
+// OAuth
 export function getSpotifyAuthUrl() {
     const clientId = process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID || '';
     const redirectUri = process.env.NEXT_PUBLIC_REDIRECT_URI || '';
@@ -66,10 +60,7 @@ export function getSpotifyAuthUrl() {
     return `https://accounts.spotify.com/authorize?${params.toString()}`;
 }
 
-// ============================================
 // Gestión de tokens
-// ============================================
-
 export function saveTokens(accessToken, refreshToken, expiresIn) {
     if (typeof window === 'undefined') return;
 
@@ -90,7 +81,6 @@ export function getAccessToken() {
     const expiresAt = Number(expiration);
     if (!Number.isFinite(expiresAt)) return null;
 
-    // Token expirado
     if (Date.now() >= expiresAt) return null;
 
     return accessToken;
@@ -115,6 +105,7 @@ export async function refreshAccessToken() {
         });
 
         if (!response.ok) {
+            // refresh token inválido/cado
             logout();
             return null;
         }
@@ -141,10 +132,7 @@ export async function getValidAccessToken() {
     return token;
 }
 
-// ============================================
 // Estado de sesión
-// ============================================
-
 export function isAuthenticated() {
     return getAccessToken() !== null;
 }

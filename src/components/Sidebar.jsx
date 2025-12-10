@@ -23,6 +23,7 @@ const menuItems = [
         href: '/dashboard/mixer',
         label: 'Mixer',
         icon: <QueueMusicIcon />,
+        description: 'Genera playlists personalizadas',
     },
     {
         href: '/dashboard/my-top',

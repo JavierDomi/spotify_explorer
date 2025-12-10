@@ -24,7 +24,6 @@ import {
     getArtistStatsFromTracks,
     getGenreStatsFromTracks,
     getDecadeStatsFromTracks,
-    getMoodSummaryFromTracks,
     getPopularityStatsFromTracks,
     createPlaylistWithTracks,
 } from '@/lib/index';

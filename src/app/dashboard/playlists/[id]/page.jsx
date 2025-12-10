@@ -1,15 +1,40 @@
+// app/dashboard/playlists/[id]/page.jsx
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
 import { getPlaylistTracks } from '@/lib/index';
 
-export default async function PlaylistTracksPage({ params }) {
-    const { id } = await params;
+export default function PlaylistTracksPage() {
+    const { id } = useParams();
+    const [tracks, setTracks] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
 
-    let tracks = [];
-    let error = null;
+    useEffect(() => {
+        if (!id) return;
 
-    try {
-        tracks = await getPlaylistTracks(id);
-    } catch (e) {
-        error = 'No se pudieron cargar las canciones de esta playlist.';
+        async function loadTracks() {
+            try {
+                setLoading(true);
+                setError(null);
+                const data = await getPlaylistTracks(id);
+                setTracks(data);
+            } catch (e) {
+                console.error(e);
+                setError(
+                    'No se pudieron cargar las canciones de esta playlist.'
+                );
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        loadTracks();
+    }, [id]);
+
+    if (loading) {
+        return <div>Cargando canciones de la playlist...</div>;
     }
 
     if (error) {

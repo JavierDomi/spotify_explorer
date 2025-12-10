@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { logout } from '@/lib/auth';
 import { getValidAccessToken } from '@/lib/index';
 
@@ -25,12 +26,18 @@ export default function UserPanel() {
     const [error, setError] = useState(null);
     const [copied, setCopied] = useState(null);
     const panelRef = useRef(null);
+    const router = useRouter();
 
     useEffect(() => {
         async function fetchUser() {
             try {
                 const token = await getValidAccessToken();
-                if (!token) throw new Error('No hay token válido');
+
+                if (!token) {
+                    logout();
+                    router.push('/');
+                    return;
+                }
 
                 const res = await fetch('https://api.spotify.com/v1/me', {
                     headers: { Authorization: `Bearer ${token}` },
@@ -52,7 +59,7 @@ export default function UserPanel() {
             }
         }
         fetchUser();
-    }, []);
+    }, [router]);
 
     // Cerrar panel al hacer clic fuera
     useEffect(() => {
@@ -72,6 +79,7 @@ export default function UserPanel() {
         logout();
         setUser(null);
         setTokens({ accessToken: '', refreshToken: '' });
+        router.push('/'); // redirección explícita al hacer logout
     };
 
     const copyToClipboard = (text, type) => {
@@ -80,7 +88,6 @@ export default function UserPanel() {
         setTimeout(() => setCopied(null), 2000);
     };
 
-    // Estado de error
     if (error && !user) {
         return (
             <div className="absolute bottom-4 left-4 right-4">

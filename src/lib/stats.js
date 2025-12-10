@@ -1,4 +1,6 @@
-import { getArtistsDetails, getAudioFeatures } from './tracks';
+// Antes:
+// import { getArtistsDetails, getAudioFeatures } from './tracks';
+import { getArtistsDetails } from './tracks';
 
 export async function getArtistStatsFromTracks(tracks) {
     const artistMap = new Map();
@@ -110,36 +112,4 @@ export function getPopularityStatsFromTracks(tracks) {
             count: pops.filter((p) => p >= b.min && p <= b.max).length,
         })),
     };
-}
-
-export async function getMoodSummaryFromTracks(tracks) {
-    const trackIds = tracks.map((t) => t.id).filter(Boolean);
-    if (trackIds.length === 0) return null;
-
-    const allFeatures = await getAudioFeatures(trackIds);
-    if (allFeatures.length === 0) return null;
-
-    const sum = allFeatures.reduce(
-        (acc, f) => {
-            acc.energy += f.energy ?? 0;
-            acc.danceability += f.danceability ?? 0;
-            acc.valence += f.valence ?? 0;
-            return acc;
-        },
-        { energy: 0, danceability: 0, valence: 0 }
-    );
-
-    const n = allFeatures.length;
-    const energy = sum.energy / n;
-    const danceability = sum.danceability / n;
-    const valence = sum.valence / n;
-
-    let dominantMood = 'desconocido';
-    if (energy < 0.4 && valence < 0.4) dominantMood = 'chill / melancólico';
-    else if (energy < 0.5 && valence >= 0.4) dominantMood = 'relajado';
-    else if (energy >= 0.5 && valence < 0.5) dominantMood = 'intenso';
-    else if (energy >= 0.5 && valence >= 0.5)
-        dominantMood = 'fiestero / alegre';
-
-    return { dominantMood, energy, danceability, valence };
 }

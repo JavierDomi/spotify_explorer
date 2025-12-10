@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import ArtistWidget from '@/components/widgets/ArtistWidget';
 import GenreWidget from '@/components/widgets/GenreWidget';
 import DecadeWidget from '@/components/widgets/DecadeWidget';
-import MoodWidget from '@/components/widgets/MoodWidget';
 import PopularityWidget from '@/components/widgets/PopularityWidget';
 import TracksListWidget from '@/components/widgets/TracksListWidget';
 
@@ -16,9 +15,7 @@ import {
     getArtistStatsFromTracks,
     getGenreStatsFromTracks,
     getDecadeStatsFromTracks,
-    getMoodSummaryFromTracks,
     getPopularityStatsFromTracks,
-    createPlaylistWithTracks,
 } from '@/lib/index';
 
 export default function DashboardPage() {
@@ -28,9 +25,7 @@ export default function DashboardPage() {
     const [artists, setArtists] = useState([]);
     const [genres, setGenres] = useState([]);
     const [decades, setDecades] = useState([]);
-    const [mood, setMood] = useState(null);
     const [popularity, setPopularity] = useState(null);
-    const [saving, setSaving] = useState(false);
     const [userStats, setUserStats] = useState(null);
 
     async function load() {
@@ -38,7 +33,6 @@ export default function DashboardPage() {
             setLoading(true);
             setError(null);
 
-            // 1. Obtener datos reales del usuario (paralelo para mejor performance)
             const [topArtists, topTracks, recentlyPlayed, savedTracks] =
                 await Promise.all([
                     getUserTopArtists('medium_term', 50),
@@ -47,17 +41,15 @@ export default function DashboardPage() {
                     getUserSavedTracks(50),
                 ]);
 
-            // 2. Combinar todos los tracks del usuario (top + recent + saved)
             const allUserTracks = [
                 ...topTracks.map((t) => ({ ...t, source: 'top' })),
                 ...recentlyPlayed.map((t) => ({ ...t, source: 'recent' })),
                 ...savedTracks.map((t) => ({ ...t, source: 'saved' })),
             ];
 
-            // Eliminar duplicados manteniendo el primero encontrado
             const uniqueTracks = Array.from(
                 new Map(allUserTracks.map((t) => [t.id, t])).values()
-            ).slice(0, 100); // Limitar a 100 para performance
+            ).slice(0, 100);
 
             setTracks(uniqueTracks);
             setUserStats({
@@ -70,7 +62,6 @@ export default function DashboardPage() {
                 },
             });
 
-            // 3. Generar estadísticas desde los tracks reales del usuario
             const artistsForWidget = await getArtistStatsFromTracks(
                 uniqueTracks
             );
@@ -84,13 +75,11 @@ export default function DashboardPage() {
                 artistsById
             );
             const decadeStats = getDecadeStatsFromTracks(uniqueTracks);
-            const moodSummary = await getMoodSummaryFromTracks(uniqueTracks);
             const popularityStats = getPopularityStatsFromTracks(uniqueTracks);
 
             setArtists(artistsForWidget);
             setGenres(genreStats);
             setDecades(decadeStats);
-            setMood(moodSummary);
             setPopularity(popularityStats);
         } catch (err) {
             console.error(err);
@@ -105,29 +94,6 @@ export default function DashboardPage() {
     useEffect(() => {
         load();
     }, []);
-
-    const handleSavePlaylist = async () => {
-        try {
-            setSaving(true);
-            const trackUris = tracks
-                .slice(0, 50)
-                .map((t) => `spotify:track:${t.id}`);
-            const date = new Date().toLocaleDateString('es-ES');
-
-            await createPlaylistWithTracks(
-                `Mi Perfil Spotify - ${date}`,
-                'Análisis automático de tu historial de Spotify',
-                trackUris
-            );
-
-            alert('¡Playlist de tu perfil guardada en Spotify!');
-        } catch (err) {
-            console.error(err);
-            alert('Error al guardar la playlist');
-        } finally {
-            setSaving(false);
-        }
-    };
 
     const handleRegenerate = () => {
         load();
@@ -175,20 +141,6 @@ export default function DashboardPage() {
 
                 <div className="flex gap-3">
                     <button
-                        onClick={handleSavePlaylist}
-                        disabled={saving}
-                        className="glass-card px-5 py-2.5 text-sm font-medium hover:bg-green-500/20 transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                    >
-                        {saving ? (
-                            <>
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-500"></div>
-                                Guardando...
-                            </>
-                        ) : (
-                            <>Guardar Mi Perfil</>
-                        )}
-                    </button>
-                    <button
                         onClick={handleRegenerate}
                         className="glass-card px-5 py-2.5 text-sm font-medium hover:bg-blue-500/20 transition-all duration-200 hover:scale-105 flex items-center gap-2"
                     >
@@ -198,13 +150,19 @@ export default function DashboardPage() {
             </div>
 
             <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+                {/* Fila 1: Artistas (2/3) + Popularidad (1/3) */}
                 <div className="xl:col-span-2">
                     <ArtistWidget topArtists={artists.slice(0, 6)} />
                 </div>
-                <GenreWidget genreStats={genres} />
-                <DecadeWidget decadeStats={decades} />
-                <MoodWidget moodSummary={mood} />
                 <PopularityWidget popularityStats={popularity} />
+
+                {/* Fila 2: Géneros (2/3) + Décadas (1/3) */}
+                <div className="xl:col-span-2">
+                    <GenreWidget genreStats={genres} />
+                </div>
+                <DecadeWidget decadeStats={decades} />
+
+                {/* Fila 3: Canciones a ancho completo */}
                 <div className="md:col-span-2 xl:col-span-3">
                     <TracksListWidget tracks={tracks.slice(0, 10)} />
                 </div>
