@@ -128,7 +128,7 @@ body {
     overflow: hidden;
 }
 
-/* Versión oscura de glass coherente con el background */
+/* Versión oscura de glass con el background */
 @media (prefers-color-scheme: dark) {
     .glass-card {
         background: var(--glass-bg-dark);
@@ -248,4 +248,49 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
     background: rgba(148, 163, 184, 0.9);
+}
+
+/* Dialog */
+dialog {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    margin: 0;
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+}
+
+dialog::backdrop {
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+/* Dialog animation */
+dialog[open] {
+    animation: dialog-fade-in 0.25s ease-out;
+}
+
+@keyframes dialog-fade-in {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -48%) scale(0.96);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+    }
+}
+
+/* Cerrar el dialog con animación */
+dialog[closing] {
+    animation: dialog-fade-out 0.2s ease-in;
+}
+
+@keyframes dialog-fade-out {
+    to {
+        opacity: 0;
+        transform: translate(-50%, -52%) scale(0.96);
+    }
 }

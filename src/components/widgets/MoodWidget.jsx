@@ -51,7 +51,7 @@ export default function MoodWidget({ moodSummary }) {
                 </div>
                 <div className="relative h-1.5 overflow-hidden rounded-full bg-zinc-800">
                     <div
-                        className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-emerald-400 via-emerald-300 to-yellow-300"
+                        className="absolute inset-y-0 left-0 rounded-full bg-linear-to-r from-emerald-400 via-emerald-300 to-yellow-300"
                         style={{ width: `${percent}%` }}
                     />
                 </div>

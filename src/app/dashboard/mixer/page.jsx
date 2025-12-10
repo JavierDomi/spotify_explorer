@@ -2,8 +2,9 @@
 
 import { useState } from 'react';
 import { Sparkles, Save, RefreshCw } from 'lucide-react';
+import toast, { Toaster } from 'react-hot-toast';
 
-// Selection Widgets (nuevos)
+// Selection Widgets
 import ArtistSelector from '@/components/selection-widgets/ArtistSelector';
 import TrackSelector from '@/components/selection-widgets/TrackSelector';
 import GenreSelector from '@/components/selection-widgets/GenreSelector';
@@ -11,13 +12,16 @@ import DecadeSelector from '@/components/selection-widgets/DecadeSelector';
 import MoodSelector from '@/components/selection-widgets/MoodSelector';
 import PopularitySelector from '@/components/selection-widgets/PopularitySelector';
 
-// Analysis Widgets (tus existentes)
+// Analysis Widgets
 import ArtistWidget from '@/components/widgets/ArtistWidget';
 import GenreWidget from '@/components/widgets/GenreWidget';
 import DecadeWidget from '@/components/widgets/DecadeWidget';
 import MoodWidget from '@/components/widgets/MoodWidget';
 import PopularityWidget from '@/components/widgets/PopularityWidget';
 import TracksListWidget from '@/components/widgets/TracksListWidget';
+
+// Modal
+import SavePlaylistModal from '@/components/modals/SavePlaylistModal';
 
 import {
     generatePlaylist,
@@ -48,6 +52,9 @@ export default function MixerPage() {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState(null);
 
+    // Modal State
+    const [showSaveModal, setShowSaveModal] = useState(false);
+
     const handleGenerate = async () => {
         setGenerating(true);
         setError(null);
@@ -68,10 +75,16 @@ export default function MixerPage() {
                 setError(
                     'No se encontraron canciones con estas preferencias. Intenta ajustar los filtros.'
                 );
+                toast.error('No se encontraron canciones con estos filtros', {
+                    duration: 4000,
+                });
                 return;
             }
 
             setGeneratedPlaylist(tracks);
+            toast.success(`${tracks.length} canciones generadas`, {
+                duration: 3000,
+            });
 
             // 2. Calcular estadísticas para widgets de análisis
             const artistStats = await getArtistStatsFromTracks(tracks);
@@ -82,14 +95,12 @@ export default function MixerPage() {
 
             const genreStats = getGenreStatsFromTracks(tracks, artistsById);
             const decadeStats = getDecadeStatsFromTracks(tracks);
-            const moodSummary = await getMoodSummaryFromTracks(tracks);
             const popularityStats = getPopularityStatsFromTracks(tracks);
 
             setStats({
                 artists: artistStats,
                 genres: genreStats,
                 decades: decadeStats,
-                mood: moodSummary,
                 popularity: popularityStats,
             });
         } catch (err) {
@@ -97,31 +108,45 @@ export default function MixerPage() {
             setError(
                 'Error generando la playlist. Por favor, intenta de nuevo.'
             );
+            toast.error('Error al generar la playlist', {
+                duration: 4000,
+            });
         } finally {
             setGenerating(false);
         }
     };
 
-    const handleSave = async () => {
+    const handleSaveClick = () => {
         if (!generatedPlaylist || generatedPlaylist.length === 0) return;
+        setShowSaveModal(true);
+    };
 
+    const handleSavePlaylist = async (playlistName) => {
         setSaving(true);
         try {
             const trackUris = generatedPlaylist.map(
                 (t) => `spotify:track:${t.id}`
             );
-            const date = new Date().toLocaleDateString('es-ES');
 
             await createPlaylistWithTracks(
-                `Mi Mezcla - ${date}`,
+                playlistName,
                 'Generada con Spotify Taste Mixer',
                 trackUris
             );
 
-            alert('¡Playlist guardada en tu Spotify!');
+            setShowSaveModal(false);
+            toast.success(`"${playlistName}" guardada en Spotify`, {
+                duration: 4000,
+                style: {
+                    background: '#059669',
+                    color: '#fff',
+                },
+            });
         } catch (err) {
             console.error('Error guardando playlist:', err);
-            alert('Error al guardar la playlist');
+            toast.error('Error al guardar la playlist', {
+                duration: 4000,
+            });
         } finally {
             setSaving(false);
         }
@@ -135,9 +160,22 @@ export default function MixerPage() {
 
     return (
         <div className="space-y-8">
+            {/* Toast Container */}
+            <Toaster
+                position="bottom-right"
+                toastOptions={{
+                    duration: 3000,
+                    style: {
+                        background: '#18181b',
+                        color: '#fff',
+                        border: '1px solid #27272a',
+                    },
+                }}
+            />
+
             {/* Header */}
             <div className="text-center space-y-2">
-                <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-emerald-400 via-blue-500 to-purple-500 bg-clip-text text-transparent">
+                <h1 className="text-4xl font-bold tracking-tight bg-linear-to-r from-emerald-400 via-blue-500 to-purple-500 bg-clip-text text-transparent">
                     Spotify Taste Mixer
                 </h1>
                 <p className="text-zinc-400">
@@ -190,7 +228,7 @@ export default function MixerPage() {
                     <button
                         onClick={handleGenerate}
                         disabled={!hasSelections || generating}
-                        className="glass-card px-8 py-4 bg-gradient-to-r from-emerald-500 to-blue-500 
+                        className="glass-card px-8 py-4 bg-linear-to-r from-emerald-500 to-blue-500 
                                  hover:from-emerald-600 hover:to-blue-600 
                                  disabled:from-zinc-800 disabled:to-zinc-800
                                  disabled:cursor-not-allowed disabled:opacity-50
@@ -222,48 +260,41 @@ export default function MixerPage() {
             {generatedPlaylist && (
                 <>
                     <section className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
-                                    <span className="text-sm font-bold text-blue-400">
-                                        2
-                                    </span>
-                                </div>
-                                <h2 className="text-xl font-semibold">
-                                    Tu playlist generada
-                                </h2>
+                        <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
+                                <span className="text-sm font-bold text-blue-400">
+                                    2
+                                </span>
                             </div>
-
-                            <div className="flex gap-3">
-                                <button
-                                    onClick={handleGenerate}
-                                    className="glass-card px-4 py-2 text-sm hover:bg-blue-500/20 transition flex items-center gap-2"
-                                >
-                                    <RefreshCw className="w-4 h-4" />
-                                    Regenerar
-                                </button>
-                                <button
-                                    onClick={handleSave}
-                                    disabled={saving}
-                                    className="glass-card px-4 py-2 text-sm bg-emerald-500/20 hover:bg-emerald-500/30 
-                                             transition flex items-center gap-2 disabled:opacity-50"
-                                >
-                                    {saving ? (
-                                        <>
-                                            <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-                                            Guardando...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Save className="w-4 h-4" />
-                                            Guardar en Spotify
-                                        </>
-                                    )}
-                                </button>
-                            </div>
+                            <h2 className="text-xl font-semibold">
+                                Tu playlist generada ({generatedPlaylist.length}{' '}
+                                canciones)
+                            </h2>
                         </div>
 
                         <TracksListWidget tracks={generatedPlaylist} />
+
+                        {/* Action Buttons - Movidos aquí al final de la lista */}
+                        <div className="flex justify-center gap-3 pt-4">
+                            <button
+                                onClick={handleGenerate}
+                                disabled={generating}
+                                className="glass-card px-6 py-3 text-sm hover:bg-blue-500/20 
+                                         transition flex items-center gap-2 disabled:opacity-50"
+                            >
+                                <RefreshCw className="w-4 h-4" />
+                                Regenerar Playlist
+                            </button>
+                            <button
+                                onClick={handleSaveClick}
+                                disabled={saving}
+                                className="glass-card px-6 py-3 text-sm bg-emerald-500 hover:bg-emerald-600 
+                                         transition flex items-center gap-2 disabled:opacity-50 font-medium"
+                            >
+                                <Save className="w-4 h-4" />
+                                Guardar en Spotify
+                            </button>
+                        </div>
                     </section>
 
                     {/* FASE 3: ANÁLISIS */}
@@ -280,13 +311,12 @@ export default function MixerPage() {
                                 </h2>
                             </div>
 
-                            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <ArtistWidget
                                     topArtists={stats.artists.slice(0, 10)}
                                 />
                                 <GenreWidget genreStats={stats.genres} />
                                 <DecadeWidget decadeStats={stats.decades} />
-                                <MoodWidget moodSummary={stats.mood} />
                                 <PopularityWidget
                                     popularityStats={stats.popularity}
                                 />
@@ -295,6 +325,14 @@ export default function MixerPage() {
                     )}
                 </>
             )}
+
+            {/* Save Playlist Modal */}
+            <SavePlaylistModal
+                isOpen={showSaveModal}
+                onClose={() => setShowSaveModal(false)}
+                onSave={handleSavePlaylist}
+                isSaving={saving}
+            />
         </div>
     );
 }
