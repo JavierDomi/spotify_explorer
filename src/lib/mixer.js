@@ -1,20 +1,38 @@
+// /lib/mixer.js
 import { getArtistTopTracks, searchTracksByGenre } from './tracks';
 
 export async function generatePlaylist(preferences) {
-    const { artists = [], genres = [], decades = [], popularity } = preferences;
+    const {
+        artists = [],
+        tracks = [],
+        genres = [],
+        decades = [],
+        popularity,
+        favorites = [],
+    } = preferences;
 
     let allTracks = [];
 
+    // Priorizar tracks seleccionados manualmente
+    if (tracks.length > 0) {
+        allTracks.push(...tracks);
+    }
+
+    // Incluir favoritos si existen
+    if (favorites.length > 0) {
+        allTracks.push(...favorites);
+    }
+
     // Top tracks de artistas
     for (const artist of artists) {
-        const tracks = await getArtistTopTracks(artist.id);
-        allTracks.push(...tracks);
+        const artistTracks = await getArtistTopTracks(artist.id);
+        allTracks.push(...artistTracks);
     }
 
     // Buscar por géneros
     for (const genre of genres) {
-        const tracks = await searchTracksByGenre(genre);
-        allTracks.push(...tracks);
+        const genreTracks = await searchTracksByGenre(genre);
+        allTracks.push(...genreTracks);
     }
 
     // Filtrar por década
@@ -37,9 +55,11 @@ export async function generatePlaylist(preferences) {
         );
     }
 
-    // Eliminar duplicados y limitar
-    return Array.from(new Map(allTracks.map((t) => [t.id, t])).values()).slice(
-        0,
-        30
+    // Eliminar duplicados y limitar a 30
+    const uniqueTracks = Array.from(
+        new Map(allTracks.map((t) => [t.id, t])).values()
     );
+
+    // Mezclar aleatoriamente y limitar
+    return uniqueTracks.sort(() => Math.random() - 0.5).slice(0, 30);
 }

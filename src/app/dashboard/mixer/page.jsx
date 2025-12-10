@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Sparkles, Save, RefreshCw } from 'lucide-react';
+import { Sparkles, Save, RefreshCw, Plus } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
 // Selection Widgets
@@ -16,12 +16,14 @@ import PopularitySelector from '@/components/selection-widgets/PopularitySelecto
 import ArtistWidget from '@/components/widgets/ArtistWidget';
 import GenreWidget from '@/components/widgets/GenreWidget';
 import DecadeWidget from '@/components/widgets/DecadeWidget';
-import MoodWidget from '@/components/widgets/MoodWidget';
 import PopularityWidget from '@/components/widgets/PopularityWidget';
 import TracksListWidget from '@/components/widgets/TracksListWidget';
 
 // Modal
 import SavePlaylistModal from '@/components/modals/SavePlaylistModal';
+
+// Hooks
+import { useFavorites } from '@/hooks/useFavorites';
 
 import {
     generatePlaylist,
@@ -55,47 +57,61 @@ export default function MixerPage() {
     // Modal State
     const [showSaveModal, setShowSaveModal] = useState(false);
 
-    const handleGenerate = async () => {
+    // Favorites hook
+    const { favorites } = useFavorites();
+
+    // Guardar preferencias para regenerar
+    const [lastPreferences, setLastPreferences] = useState(null);
+
+    const generateWithPreferences = async (
+        preferences,
+        keepExisting = false
+    ) => {
         setGenerating(true);
         setError(null);
 
         try {
-            // 1. Generar playlist con preferencias
-            const preferences = {
-                artists: selectedArtists,
-                genres: selectedGenres,
-                decades: selectedDecades.map((d) => d.replace('s', '')), // '1980s' -> '1980'
-                popularity: popularityRange,
-                mood: moodValues,
-            };
-
             const tracks = await generatePlaylist(preferences);
 
             if (tracks.length === 0) {
-                setError(
-                    'No se encontraron canciones con estas preferencias. Intenta ajustar los filtros.'
-                );
+                setError('No se encontraron canciones con estas preferencias.');
                 toast.error('No se encontraron canciones con estos filtros', {
                     duration: 4000,
                 });
                 return;
             }
 
-            setGeneratedPlaylist(tracks);
-            toast.success(`${tracks.length} canciones generadas`, {
-                duration: 3000,
-            });
+            // Si keepExisting, mantener tracks actuales y añadir nuevos (sin duplicados)
+            let finalTracks;
+            if (keepExisting && generatedPlaylist) {
+                const existingIds = new Set(generatedPlaylist.map((t) => t.id));
+                const newTracks = tracks.filter((t) => !existingIds.has(t.id));
+                finalTracks = [...generatedPlaylist, ...newTracks];
+                toast.success(`${newTracks.length} canciones añadidas`, {
+                    duration: 3000,
+                });
+            } else {
+                finalTracks = tracks;
+                toast.success(`${tracks.length} canciones generadas`, {
+                    duration: 3000,
+                });
+            }
 
-            // 2. Calcular estadísticas para widgets de análisis
-            const artistStats = await getArtistStatsFromTracks(tracks);
+            setGeneratedPlaylist(finalTracks);
+
+            // Calcular estadísticas
+            const artistStats = await getArtistStatsFromTracks(finalTracks);
             const artistsById = {};
             artistStats.forEach((a) => {
                 artistsById[a.id] = a;
             });
 
-            const genreStats = getGenreStatsFromTracks(tracks, artistsById);
-            const decadeStats = getDecadeStatsFromTracks(tracks);
-            const popularityStats = getPopularityStatsFromTracks(tracks);
+            const genreStats = getGenreStatsFromTracks(
+                finalTracks,
+                artistsById
+            );
+            const decadeStats = getDecadeStatsFromTracks(finalTracks);
+            const popularityStats = getPopularityStatsFromTracks(finalTracks);
 
             setStats({
                 artists: artistStats,
@@ -114,6 +130,42 @@ export default function MixerPage() {
         } finally {
             setGenerating(false);
         }
+    };
+
+    const handleGenerate = async () => {
+        const preferences = {
+            artists: selectedArtists,
+            tracks: selectedTracks,
+            genres: selectedGenres,
+            decades: selectedDecades.map((d) => d.replace('s', '')),
+            popularity: popularityRange,
+            mood: moodValues,
+            // Considerar favoritos si existen
+            favorites: favorites.length > 0 ? favorites : undefined,
+        };
+
+        setLastPreferences(preferences);
+        await generateWithPreferences(preferences, false);
+    };
+
+    const handleRegenerate = async () => {
+        if (!lastPreferences) return;
+        await generateWithPreferences(lastPreferences, false);
+    };
+
+    const handleAddMore = async () => {
+        if (!lastPreferences) return;
+        await generateWithPreferences(lastPreferences, true);
+    };
+
+    const handleRemoveTrack = (trackId) => {
+        // Primero actualizar el estado
+        setGeneratedPlaylist((prev) => {
+            return prev.filter((track) => track.id !== trackId);
+        });
+
+        // Después mostrar el toast
+        toast.success('Canción eliminada', { duration: 2000 });
     };
 
     const handleSaveClick = () => {
@@ -175,12 +227,17 @@ export default function MixerPage() {
 
             {/* Header */}
             <div className="text-center space-y-2">
-                <h1 className="text-4xl font-bold tracking-tight bg-linear-to-r from-emerald-400 via-blue-500 to-purple-500 bg-clip-text text-transparent">
+                <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-emerald-400 via-blue-500 to-purple-500 bg-clip-text text-transparent">
                     Spotify Taste Mixer
                 </h1>
                 <p className="text-zinc-400">
                     Personaliza tus preferencias y genera tu playlist perfecta
                 </p>
+                {favorites.length > 0 && (
+                    <p className="text-xs text-pink-400">
+                        {favorites.length} Canciones en favoritos
+                    </p>
+                )}
             </div>
 
             {/* FASE 1: SELECCIÓN */}
@@ -228,7 +285,7 @@ export default function MixerPage() {
                     <button
                         onClick={handleGenerate}
                         disabled={!hasSelections || generating}
-                        className="glass-card px-8 py-4 bg-linear-to-r from-emerald-500 to-blue-500 
+                        className="glass-card px-8 py-4 bg-gradient-to-r from-emerald-500 to-blue-500 
                                  hover:from-emerald-600 hover:to-blue-600 
                                  disabled:from-zinc-800 disabled:to-zinc-800
                                  disabled:cursor-not-allowed disabled:opacity-50
@@ -272,19 +329,33 @@ export default function MixerPage() {
                             </h2>
                         </div>
 
-                        <TracksListWidget tracks={generatedPlaylist} />
+                        <TracksListWidget
+                            tracks={generatedPlaylist}
+                            onRemoveTrack={handleRemoveTrack}
+                        />
 
-                        {/* Action Buttons - Movidos aquí al final de la lista */}
-                        <div className="flex justify-center gap-3 pt-4">
+                        {/* Action Buttons */}
+                        <div className="flex flex-wrap justify-center gap-3 pt-4">
                             <button
-                                onClick={handleGenerate}
+                                onClick={handleRegenerate}
                                 disabled={generating}
                                 className="glass-card px-6 py-3 text-sm hover:bg-blue-500/20 
                                          transition flex items-center gap-2 disabled:opacity-50"
                             >
                                 <RefreshCw className="w-4 h-4" />
-                                Regenerar Playlist
+                                Regenerar
                             </button>
+
+                            <button
+                                onClick={handleAddMore}
+                                disabled={generating}
+                                className="glass-card px-6 py-3 text-sm hover:bg-purple-500/20 
+                                         transition flex items-center gap-2 disabled:opacity-50"
+                            >
+                                <Plus className="w-4 h-4" />
+                                Añadir Más
+                            </button>
+
                             <button
                                 onClick={handleSaveClick}
                                 disabled={saving}
