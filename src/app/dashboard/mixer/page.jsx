@@ -332,6 +332,7 @@ export default function MixerPage() {
                         <TracksListWidget
                             tracks={generatedPlaylist}
                             onRemoveTrack={handleRemoveTrack}
+                            title="Canciones en la mezcla"
                         />
 
                         {/* Action Buttons */}

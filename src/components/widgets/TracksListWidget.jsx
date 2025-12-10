@@ -4,7 +4,11 @@
 import { Trash2, Heart } from 'lucide-react';
 import { useFavorites } from '@/hooks/useFavorites';
 
-export default function TracksListWidget({ tracks = [], onRemoveTrack }) {
+export default function TracksListWidget({
+    tracks = [],
+    onRemoveTrack,
+    title,
+}) {
     const { isFavorite, toggleFavorite } = useFavorites();
 
     if (!tracks || tracks.length === 0) {
@@ -26,7 +30,7 @@ export default function TracksListWidget({ tracks = [], onRemoveTrack }) {
         <div className="glass-card">
             <div className="p-4 border-b border-zinc-800/50">
                 <h3 className="text-sm font-semibold tracking-tight">
-                    Canciones en tu mezcla
+                    {title}
                 </h3>
                 <p className="text-xs text-zinc-400 mt-1">
                     {uniqueTracks.length} tracks seleccionados

@@ -164,7 +164,10 @@ export default function DashboardPage() {
 
                 {/* Fila 3: Canciones a ancho completo */}
                 <div className="md:col-span-2 xl:col-span-3">
-                    <TracksListWidget tracks={tracks.slice(0, 10)} />
+                    <TracksListWidget
+                        tracks={tracks.slice(0, 10)}
+                        title="Tu música más escuchada"
+                    />
                 </div>
             </div>
         </div>

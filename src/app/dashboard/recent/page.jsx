@@ -33,7 +33,10 @@ export default function RecentPage() {
             <h2 className="text-lg font-bold mb-4">
                 Reproducidas recientemente
             </h2>
-            <TracksListWidget tracks={tracks} />
+            <TracksListWidget
+                tracks={tracks}
+                title="Tus escuchas recientes..."
+            />
         </div>
     );
 }

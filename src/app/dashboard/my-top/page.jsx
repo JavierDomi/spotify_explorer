@@ -37,7 +37,10 @@ export default function MyTopPage() {
     return (
         <div className="space-y-8">
             <ArtistWidget topArtists={artists} />
-            <TracksListWidget tracks={tracks} />
+            <TracksListWidget
+                tracks={tracks}
+                title="Tus canciones más escuchadas"
+            />
         </div>
     );
 }

@@ -31,7 +31,7 @@ export default function SavedPage() {
     return (
         <div>
             <h2 className="text-lg font-bold mb-4">Tus canciones guardadas</h2>
-            <TracksListWidget tracks={tracks} />
+            <TracksListWidget tracks={tracks} title="Tus canciones guardadas" />
         </div>
     );
 }
