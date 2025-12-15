@@ -55,7 +55,7 @@ export async function generatePlaylist(preferences) {
         );
     }
 
-    // Eliminar duplicados y limitar a 30
+    // Eliminar duplicados
     const uniqueTracks = Array.from(
         new Map(allTracks.map((t) => [t.id, t])).values()
     );
